@@ -1,3 +1,12 @@
+# private: kit, coaching files, reference code (not pushed for now)
+CLAUDE.md
+SETUP.md
+/SPEC.md
+.claude/
+docs/
+reference/
+*.zip
+
 # secrets
 .env
 .env.*
