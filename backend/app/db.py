@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+from fastapi import Depends
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -56,3 +57,7 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+# Shorthand for route signatures: `def list_sources(db: DbSession, ...)`.
+DbSession = Annotated[Session, Depends(get_db)]

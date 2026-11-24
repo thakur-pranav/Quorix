@@ -5,12 +5,20 @@ Every tunable value lives here (CLAUDE.md rule). Add settings on the day they ar
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # "production" disables dev-only shortcuts such as creating tables at startup.
+    environment: Literal["development", "test", "production"] = "development"
+
+    # LLM provider reported by /api/health. The adapter itself arrives on Day 3.
+    llm_provider: Literal["groq", "gemini", "none"] = "none"
 
     # Database: SQLite locally, Postgres in production.
     database_url: str = "sqlite:///./data/quorix.db"
