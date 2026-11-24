@@ -9,7 +9,18 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session
 
 from app.db import engine
-from app.models import Chunk, Conversation, Message, Source, new_id
+from app.models import (
+    Chunk,
+    ClusterMember,
+    Conversation,
+    EvaluationRun,
+    Message,
+    Recommendation,
+    Report,
+    Source,
+    TopicCluster,
+    new_id,
+)
 
 ID_PATTERN = re.compile(r"^[a-z]+_[0-9a-f]{12}$")
 
@@ -115,3 +126,77 @@ def test_every_table_has_a_composite_index_led_by_organization_id(db: Session) -
         indexes = [ix["column_names"] for ix in inspector.get_indexes(table)]
         assert any(len(cols) > 1 and cols[0] == "organization_id" for cols in indexes), table
         assert ["organization_id"] not in indexes, f"{table}: redundant single org index"
+
+
+# --- Part 2: analytics and evaluation -------------------------------------------------------
+
+
+def test_all_nine_tables_exist(db: Session) -> None:
+    assert sorted(inspect(engine).get_table_names()) == [
+        "chunks",
+        "cluster_members",
+        "conversations",
+        "evaluation_runs",
+        "messages",
+        "recommendations",
+        "reports",
+        "sources",
+        "topic_clusters",
+    ]
+
+
+def _message(db: Session) -> Message:
+    conv = Conversation(organization_id="org_a", session_id="s1")
+    msg = Message(organization_id="org_a", role="customer", text="refund?", period="2026-11")
+    conv.messages = [msg]
+    db.add(conv)
+    db.commit()
+    return msg
+
+
+def test_cluster_members_link_messages_and_cascade(db: Session) -> None:
+    msg = _message(db)
+    cluster = TopicCluster(
+        organization_id="org_a", period="2026-11", name="Refunds", trend="baseline"
+    )
+    cluster.members = [ClusterMember(organization_id="org_a", message_id=msg.id)]
+    db.add(cluster)
+    db.commit()
+    assert cluster.id.startswith("ins_")
+
+    # Deleting the message removes its membership row (DB-level cascade).
+    db.delete(msg)
+    db.commit()
+    db.expire_all()
+    assert db.scalars(select(ClusterMember)).all() == []
+
+
+def test_deleting_report_cascades_to_recommendations(db: Session) -> None:
+    report = Report(organization_id="org_a", period="2026-11")
+    report.recommendations = [
+        Recommendation(
+            organization_id="org_a",
+            cluster_id="ins_000000000001",
+            cluster_name="Refunds",
+            category="faq",
+            headline="Add a refunds FAQ",
+            body="Customers ask about refund timing.",
+        )
+    ]
+    db.add(report)
+    db.commit()
+
+    db.delete(report)
+    db.commit()
+    assert db.scalars(select(Recommendation)).all() == []
+
+
+def test_evaluation_metrics_can_be_missing(db: Session) -> None:
+    run = EvaluationRun(organization_id="org_a", question_count=50, failed_judgements=50)
+    db.add(run)
+    db.commit()
+    db.expire_all()
+
+    loaded = db.scalars(select(EvaluationRun)).one()
+    assert loaded.id.startswith("eval_") and len(loaded.id) == 17
+    assert loaded.faithfulness is None  # not 0.0: a failed judge is not a bad score

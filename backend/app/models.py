@@ -141,3 +141,118 @@ class Message(Base):
     period: Mapped[str] = mapped_column(String(7))  # "YYYY-MM", set on write; required
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+# --- Analytics (written by the monthly batch, SPEC section 7) -------------------------------
+
+
+class TopicCluster(Base):
+    """One topic found in one period's customer questions."""
+
+    __tablename__ = "topic_clusters"
+    __table_args__ = (Index("ix_topic_clusters_org_period", "organization_id", "period"),)
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True, default=lambda: new_id("ins"))
+    organization_id: Mapped[str] = _org_column()
+    period: Mapped[str] = mapped_column(String(7))  # "YYYY-MM"
+    rank: Mapped[int] = mapped_column(Integer, default=0)  # 1 = highest priority
+    name: Mapped[str] = mapped_column(Text)
+    keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
+    query_count: Mapped[int] = mapped_column(Integer, default=0)
+    previous_query_count: Mapped[int] = mapped_column(Integer, default=0)
+    growth: Mapped[float] = mapped_column(Float, default=0.0)
+    mean_confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    severity: Mapped[float] = mapped_column(Float, default=0.0)
+    severity_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority: Mapped[float] = mapped_column(Float, default=0.0)
+    trend: Mapped[str] = mapped_column(String(16))  # baseline|emerging|recurring|stable|declining
+    centroid: Mapped[list[float]] = mapped_column(JSON, default=list)
+    # Plain column, not a FK: re-running an earlier period deletes and rebuilds its clusters,
+    # and a FK would break (or cascade into) the later period's links.
+    previous_cluster_id: Mapped[str | None] = mapped_column(String(24), nullable=True)
+
+    members: Mapped[list[ClusterMember]] = relationship(
+        back_populates="cluster", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class ClusterMember(Base):
+    """Link table: which customer messages belong to which topic cluster."""
+
+    __tablename__ = "cluster_members"
+    __table_args__ = (Index("ix_cluster_members_org_cluster_id", "organization_id", "cluster_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = _org_column()
+    cluster_id: Mapped[str] = mapped_column(
+        ForeignKey("topic_clusters.id", ondelete="CASCADE"), index=True
+    )
+    message_id: Mapped[str] = mapped_column(ForeignKey("messages.id", ondelete="CASCADE"), index=True)
+
+    cluster: Mapped[TopicCluster] = relationship(back_populates="members")
+
+
+class Report(Base):
+    """The monthly summary for one period."""
+
+    __tablename__ = "reports"
+    __table_args__ = (Index("ix_reports_org_period", "organization_id", "period"),)
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True, default=lambda: new_id("rep"))
+    organization_id: Mapped[str] = _org_column()
+    period: Mapped[str] = mapped_column(String(7))
+    generated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    conversation_count: Mapped[int] = mapped_column(Integer, default=0)
+    query_count: Mapped[int] = mapped_column(Integer, default=0)
+    unanswered_rate: Mapped[float] = mapped_column(Float, default=0.0)  # share with low confidence
+    summary: Mapped[str] = mapped_column(Text, default="")
+
+    recommendations: Mapped[list[Recommendation]] = relationship(
+        back_populates="report", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class Recommendation(Base):
+    """A concrete action for one of the report's top topics."""
+
+    __tablename__ = "recommendations"
+    __table_args__ = (
+        Index("ix_recommendations_org_report_id", "organization_id", "report_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True, default=lambda: new_id("rec"))
+    organization_id: Mapped[str] = _org_column()
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    # Copied, not a FK, so the recommendation still reads correctly if clusters are rebuilt.
+    cluster_id: Mapped[str] = mapped_column(String(24))
+    cluster_name: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(24))  # product|documentation|faq|customer_issue
+    headline: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text)
+    faq_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    supporting_queries: Mapped[list[str]] = mapped_column(JSON, default=list)
+    volume: Mapped[int] = mapped_column(Integer, default=0)
+    growth: Mapped[float] = mapped_column(Float, default=0.0)
+    expected_effect: Mapped[str] = mapped_column(Text, default="")
+
+    report: Mapped[Report] = relationship(back_populates="recommendations")
+
+
+# --- Evaluation (SPEC section 8) ------------------------------------------------------------
+
+
+class EvaluationRun(Base):
+    __tablename__ = "evaluation_runs"
+    __table_args__ = (Index("ix_evaluation_runs_org_ran_at", "organization_id", "ran_at"),)
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True, default=lambda: new_id("eval"))
+    organization_id: Mapped[str] = _org_column()
+    ran_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    question_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Judge calls that failed are left out of the averages, not counted as 0 (SPEC section 9 #9).
+    failed_judgements: Mapped[int] = mapped_column(Integer, default=0)
+    # None when every judgement for that metric failed.
+    faithfulness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    answer_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    context_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    failures: Mapped[list[dict[str, object]]] = mapped_column(JSON, default=list)
