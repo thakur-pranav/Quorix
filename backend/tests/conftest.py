@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 
+from tests.tokens import TEST_JWT_SECRET
+
 # Must be set before `app.config` is imported, because `settings = Settings()` runs at import.
-TEST_JWT_SECRET = "test-secret-that-is-definitely-longer-than-32-chars"
 os.environ["BACKEND_JWT_SECRET"] = TEST_JWT_SECRET
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
