@@ -58,6 +58,7 @@ def get_tenant(
             issuer=settings.jwt_issuer,
             audience=settings.jwt_audience,
             options={"require": _REQUIRED_CLAIMS},
+            leeway=settings.jwt_leeway_seconds,
         )
     except jwt.PyJWTError as exc:
         # Log the real reason for us; tell the caller nothing specific.

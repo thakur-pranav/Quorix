@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_issuer: str = "quorix-web"
     jwt_audience: str = "quorix-api"
+    # Tolerated clock difference between the Next.js and FastAPI hosts when checking exp/iat.
+    jwt_leeway_seconds: int = 5
     org_id_pattern: str = r"^[a-zA-Z0-9_-]{1,64}$"
 
     # Input limits (validated by app/schemas.py).

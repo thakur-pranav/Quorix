@@ -87,6 +87,12 @@ def test_bad_tokens_are_401(label: str, headers: dict[str, str]) -> None:
     assert res.status_code == 401, label
 
 
+def test_small_clock_skew_is_tolerated() -> None:
+    """Expired 2 s ago, within the 5 s leeway: still accepted. (Expired 10 s ago is a 401 above.)"""
+    res = client.get("/whoami", headers=auth_header(expires_in=-2))
+    assert res.status_code == 200
+
+
 def test_tampered_payload_is_401() -> None:
     """Change org in the payload but keep the old signature: the signature no longer matches."""
     header, _payload, signature = make_token(org="org_mine").split(".")
