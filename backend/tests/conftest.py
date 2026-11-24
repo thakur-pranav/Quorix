@@ -11,6 +11,7 @@ os.environ["BACKEND_JWT_SECRET"] = TEST_JWT_SECRET
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["ENVIRONMENT"] = "test"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
+os.environ["CHROMA_PATH"] = ":memory:"
 
 
 # Imports below the env setup on purpose: app modules read settings at import time.
@@ -20,8 +21,37 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from app import models  # noqa: E402, F401  (registers all tables on Base.metadata)
+from app import embeddings, models, vector_store  # noqa: E402, F401  (models registers tables)
 from app.db import Base, SessionLocal, engine  # noqa: E402
+from tests.fakes import FAKE_DIMENSION, fake_embed  # noqa: E402
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--real-model", action="store_true", help="also run tests that load the real model"
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "real_model: loads the real embedding model (slow, opt-in)")
+
+
+@pytest.fixture(autouse=True)
+def fake_embeddings(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every test uses the fake embedder unless marked `real_model`, so no test downloads 90 MB."""
+    if request.node.get_closest_marker("real_model"):
+        return
+    monkeypatch.setattr(embeddings, "embed", fake_embed)
+    monkeypatch.setattr(embeddings, "embed_one", lambda text: fake_embed([text])[0])
+    monkeypatch.setattr(embeddings, "dimension", lambda: FAKE_DIMENSION)
+
+
+@pytest.fixture(autouse=True)
+def clean_vector_store() -> Iterator[None]:
+    """Empty the in-memory Chroma collection after each test that touched it."""
+    yield
+    if vector_store._collection is not None:
+        vector_store.reset_for_tests()
 
 
 @pytest.fixture
@@ -43,3 +73,6 @@ def client(db: Session) -> Iterator[TestClient]:
 
     with TestClient(app) as test_client:
         yield test_client
+        # Close the test's session before the app's shutdown runs engine.dispose(), which
+        # closes the single shared in-memory connection (StaticPool).
+        db.close()
