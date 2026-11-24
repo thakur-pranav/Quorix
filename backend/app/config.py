@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     jwt_audience: str = "quorix-api"
     org_id_pattern: str = r"^[a-zA-Z0-9_-]{1,64}$"
 
+    # Input limits (validated by app/schemas.py).
+    max_question_chars: int = 2000
+
     # Comma-separated list of browser origins allowed by CORS.
     cors_origins: str = "http://localhost:3000"
 
