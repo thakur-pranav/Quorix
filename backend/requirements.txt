@@ -1,0 +1,8 @@
+# Day 1: API, config, database, auth, tests
+fastapi==0.165.0
+uvicorn==0.54.0
+pydantic-settings==2.16.3
+SQLAlchemy==2.1.9
+PyJWT==2.15.1
+pytest==9.2.0
+httpx==0.28.1
