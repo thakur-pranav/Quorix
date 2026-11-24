@@ -106,4 +106,12 @@ def test_message_round_trip(db: Session) -> None:
 def test_composite_indexes_exist(db: Session, table: str, columns: list[str]) -> None:
     indexes = [ix["column_names"] for ix in inspect(engine).get_indexes(table)]
     assert columns in indexes
-    assert ["organization_id"] in indexes  # every table: org indexed on its own too
+
+
+def test_every_table_has_a_composite_index_led_by_organization_id(db: Session) -> None:
+    """Tenancy rule: every table is filtered by org, so org must lead an index on every table."""
+    inspector = inspect(engine)
+    for table in inspector.get_table_names():
+        indexes = [ix["column_names"] for ix in inspector.get_indexes(table)]
+        assert any(len(cols) > 1 and cols[0] == "organization_id" for cols in indexes), table
+        assert ["organization_id"] not in indexes, f"{table}: redundant single org index"

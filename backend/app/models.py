@@ -1,6 +1,7 @@
 """ORM models: the 9 tables from SPEC section 3.
 
-Every table has a non-null, indexed `organization_id`, and every query must filter by it.
+Every table has a non-null `organization_id`, indexed as the leading column of a composite
+index, and every query must filter by it.
 IDs look like `<prefix>_<12 hex>`, e.g. `src_ab12cd34ef56`.
 """
 
@@ -50,7 +51,9 @@ class UTCDateTime(TypeDecorator[datetime]):
 
 
 def _org_column() -> Mapped[str]:
-    return mapped_column(String(64), nullable=False, index=True)
+    # No single-column index: every table has a composite index that starts with
+    # organization_id, which already serves org-only lookups (leftmost-prefix rule).
+    return mapped_column(String(64), nullable=False)
 
 
 # --- Knowledge base -------------------------------------------------------------------------
