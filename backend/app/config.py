@@ -1,0 +1,33 @@
+"""Application settings, loaded from environment variables and backend/.env.
+
+Every tunable value lives here (CLAUDE.md rule). Add settings on the day they are needed.
+"""
+
+from __future__ import annotations
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # Database: SQLite locally, Postgres in production.
+    database_url: str = "sqlite:///./data/quorix.db"
+
+    # Service-to-service token (SPEC section 2). Required, no default, at least 32 chars.
+    backend_jwt_secret: str = Field(min_length=32)
+    jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "quorix-web"
+    jwt_audience: str = "quorix-api"
+    org_id_pattern: str = r"^[a-zA-Z0-9_-]{1,64}$"
+
+    # Comma-separated list of browser origins allowed by CORS.
+    cors_origins: str = "http://localhost:3000"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+
+settings = Settings()
