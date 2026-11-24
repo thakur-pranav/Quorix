@@ -10,7 +10,17 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -180,13 +190,15 @@ class ClusterMember(Base):
     """Link table: which customer messages belong to which topic cluster."""
 
     __tablename__ = "cluster_members"
-    __table_args__ = (Index("ix_cluster_members_org_cluster_id", "organization_id", "cluster_id"),)
+    __table_args__ = (
+        Index("ix_cluster_members_org_cluster_id", "organization_id", "cluster_id"),
+        # A message is in a cluster at most once. The unique index also serves cluster_id lookups.
+        UniqueConstraint("cluster_id", "message_id", name="uq_cluster_members_cluster_message"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     organization_id: Mapped[str] = _org_column()
-    cluster_id: Mapped[str] = mapped_column(
-        ForeignKey("topic_clusters.id", ondelete="CASCADE"), index=True
-    )
+    cluster_id: Mapped[str] = mapped_column(ForeignKey("topic_clusters.id", ondelete="CASCADE"))
     message_id: Mapped[str] = mapped_column(ForeignKey("messages.id", ondelete="CASCADE"), index=True)
 
     cluster: Mapped[TopicCluster] = relationship(back_populates="members")

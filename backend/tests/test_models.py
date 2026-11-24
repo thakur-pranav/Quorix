@@ -171,6 +171,20 @@ def test_cluster_members_link_messages_and_cascade(db: Session) -> None:
     assert db.scalars(select(ClusterMember)).all() == []
 
 
+def test_message_cannot_join_the_same_cluster_twice(db: Session) -> None:
+    msg = _message(db)
+    cluster = TopicCluster(
+        organization_id="org_a", period="2026-11", name="Refunds", trend="baseline"
+    )
+    cluster.members = [
+        ClusterMember(organization_id="org_a", message_id=msg.id),
+        ClusterMember(organization_id="org_a", message_id=msg.id),
+    ]
+    db.add(cluster)
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
 def test_deleting_report_cascades_to_recommendations(db: Session) -> None:
     report = Report(organization_id="org_a", period="2026-11")
     report.recommendations = [
