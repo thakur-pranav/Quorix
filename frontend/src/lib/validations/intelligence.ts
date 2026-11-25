@@ -35,3 +35,5 @@ export const chatSchema = z.object({
 });
 
 export type ChatInput = z.infer<typeof chatSchema>;
+
+export const topicIdSchema = z.string().regex(/^ins_[0-9a-f]{12}$/, "Invalid topic id");

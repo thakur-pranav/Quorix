@@ -78,3 +78,12 @@ export async function askQuestionAction(input: { question: string; sessionId: st
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
   return run(() => fastapi<ChatResponse>("/chat", { method: "POST", json: parsed.data }));
 }
+
+/** Queue the analytics batch for every period (oldest first). Runs in the background on FastAPI. */
+export async function runAnalyticsAction(): Promise<ActionResult<{ periods: string[] }>> {
+  await requireUser();
+  const result = await run(() => fastapi<{ status: string; periods: string[] }>("/analytics/run", { method: "POST", json: {} }));
+  revalidatePath("/insights");
+  revalidatePath("/report");
+  return result.success ? { success: true, data: { periods: result.data.periods } } : result;
+}

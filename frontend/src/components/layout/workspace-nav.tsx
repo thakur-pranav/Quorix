@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-// Overview, Insights, Report and Evaluation join this list on Days 5 and 6.
+// Overview and Evaluation join this list on Days 6 and 7.
 const tabs = [
-  { href: "/sources", label: "Sources" },
+  { href: "/insights", label: "Insights" },
+  { href: "/report", label: "Report" },
   { href: "/ask", label: "Ask" },
+  { href: "/sources", label: "Sources" },
 ];
 
 export function WorkspaceNav() {
