@@ -9,8 +9,3 @@ export function cn(...inputs: ClassValue[]) {
 export function formatPercent(value: number): string {
   return `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%`;
 }
-
-export function formatDateTime(iso: string | null): string {
-  if (!iso) return "never";
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
-}

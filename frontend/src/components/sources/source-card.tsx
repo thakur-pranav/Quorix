@@ -7,7 +7,8 @@ import { deleteSourceAction, reindexSourceAction } from "@/actions/intelligence"
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import type { SourceOut, SourceStatus } from "@/lib/fastapi/types";
-import { cn, formatDateTime } from "@/lib/utils";
+import { LocalTime } from "@/components/ui/local-time";
+import { cn } from "@/lib/utils";
 
 const STATUS: Record<SourceStatus, { label: string; className: string; busy?: boolean }> = {
   queued: { label: "Queued", className: "bg-surface-3 text-ink-muted", busy: true },
@@ -63,7 +64,9 @@ export function SourceCard({ source, onChanged }: { source: SourceOut; onChanged
         </div>
         <div className="flex gap-1.5">
           <dt>Last indexed</dt>
-          <dd className="text-ink">{formatDateTime(source.lastIndexedAt)}</dd>
+          <dd className="text-ink">
+            <LocalTime iso={source.lastIndexedAt} />
+          </dd>
         </div>
       </dl>
 
