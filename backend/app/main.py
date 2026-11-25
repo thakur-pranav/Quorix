@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 
-from app import models
+from app import embeddings, models, vector_store
 from app.config import settings
 from app.db import Base, DbSession, engine
 from app.routers import chat, sources
@@ -22,6 +22,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Startup. Dev/test only: production schema changes go through Alembic (Day 6, SPEC section 3).
     if settings.environment != "production":
         Base.metadata.create_all(engine)
+    if settings.warm_models_on_startup:
+        # Load MiniLM and open Chroma now, so the first chat question doesn't wait ~20 s.
+        embeddings.embed_one("warm-up")
+        vector_store.count()
     yield
     # Shutdown: close pooled DB connections cleanly.
     engine.dispose()

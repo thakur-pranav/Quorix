@@ -117,3 +117,17 @@ def test_openapi_documents_bearer_auth(client: TestClient) -> None:
     assert "/api/health" in spec["paths"] and "/api/sources" in spec["paths"]
     schemes = spec["components"]["securitySchemes"]
     assert any(s.get("scheme", "").lower() == "bearer" for s in schemes.values())
+
+
+def test_startup_warms_the_models_when_enabled(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app import embeddings
+    from app.config import settings
+    from app.main import app
+
+    calls: list[str] = []
+    monkeypatch.setattr(settings, "warm_models_on_startup", True)
+    monkeypatch.setattr(embeddings, "embed_one", lambda text: calls.append(text) or [0.0])
+    with TestClient(app):
+        pass
+    assert calls == ["warm-up"]  # loaded during startup, before any request
+    db.close()

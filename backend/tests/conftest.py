@@ -14,6 +14,7 @@ os.environ["CORS_ORIGINS"] = "http://localhost:3000"
 os.environ["CHROMA_PATH"] = ":memory:"
 # Env vars beat backend/.env, so a developer's real LLM key can never be used by the tests.
 os.environ["LLM_PROVIDER"] = "none"
+os.environ["WARM_MODELS_ON_STARTUP"] = "false"
 
 
 # Imports below the env setup on purpose: app modules read settings at import time.
