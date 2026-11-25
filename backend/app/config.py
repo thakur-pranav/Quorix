@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,8 +17,27 @@ class Settings(BaseSettings):
     # "production" disables dev-only shortcuts such as creating tables at startup.
     environment: Literal["development", "test", "production"] = "development"
 
-    # LLM provider reported by /api/health. The adapter itself arrives on Day 3.
+    # LLM (SPEC section 6). "none" = no LLM: chat degrades to returning passages.
     llm_provider: Literal["groq", "gemini", "none"] = "none"
+    # SecretStr: printed as '**********' in logs, reprs and error messages.
+    groq_api_key: SecretStr | None = None
+    groq_model: str | None = None
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str | None = None
+    llm_timeout_seconds: float = 20.0
+    llm_max_retries: int = 3  # retries after the first attempt, for 429 / 5xx / network errors
+    llm_backoff_base_seconds: float = 1.0  # waits 1 s, 2 s, 4 s
+    llm_max_retry_after_seconds: float = 20.0  # cap on a server-sent Retry-After
+
+    # RAG (SPEC section 6).
+    retrieval_top_k: int = 5
+    # PROVISIONAL until measured on Day 3 (docs/EXPERIMENTS.md). Below this: no LLM call.
+    low_confidence_threshold: float = 0.35
+    low_confidence_passages: int = 2
+    chat_temperature: float = 0.2
+    chat_max_tokens: int = 600
+    citation_excerpt_chars: int = 320
+    fallback_passage_chars: int = 400
 
     # Database: SQLite locally, Postgres in production.
     database_url: str = "sqlite:///./data/quorix.db"
@@ -63,6 +82,18 @@ class Settings(BaseSettings):
 
     # Comma-separated list of browser origins allowed by CORS.
     cors_origins: str = "http://localhost:3000"
+
+    @model_validator(mode="after")
+    def _llm_provider_is_configured(self) -> Settings:
+        """Fail at startup if the chosen LLM provider has no key or model."""
+        required = {
+            "groq": (self.groq_api_key, self.groq_model),
+            "gemini": (self.gemini_api_key, self.gemini_model),
+        }.get(self.llm_provider)
+        if required is not None and not all(required):
+            name = self.llm_provider.upper()
+            raise ValueError(f"LLM_PROVIDER={self.llm_provider} needs {name}_API_KEY and {name}_MODEL")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:
