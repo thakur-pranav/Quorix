@@ -47,3 +47,43 @@ jobs:
       - name: Run tests
         # No real secrets needed: tests/conftest.py sets a test secret and an in-memory database.
         run: pytest -q
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm (version from package.json "packageManager")
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies (exactly what the lockfile says)
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Unit tests
+        # Test-only secrets come from src/test/setup.ts; no real secrets in CI.
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
