@@ -90,3 +90,110 @@ class ChatResponse(CamelModel):
     confidence: float = Field(ge=0.0, le=1.0)
     low_confidence: bool
     citations: list[Citation] = Field(default_factory=list, max_length=5)
+
+
+# --- Analytics (SPEC sections 4 and 7) ------------------------------------------------------
+
+Period = Annotated[str, StringConstraints(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
+
+
+class TopicOut(CamelModel):
+    id: str
+    period: str
+    rank: int
+    name: str
+    keywords: list[str]
+    query_count: int
+    previous_query_count: int
+    growth: float
+    mean_confidence: float
+    severity: float
+    severity_reason: str | None
+    priority: float
+    trend: str
+
+
+class TopicHistoryPoint(CamelModel):
+    period: str
+    query_count: int
+    mean_confidence: float
+    trend: str
+
+
+class MemberQuery(CamelModel):
+    message_id: str
+    text: str
+    confidence: float | None
+    created_at: datetime
+
+
+class WeakChunk(CamelModel):
+    """A doc passage this topic's questions keep landing on, and how well it matched them."""
+
+    chunk_id: str
+    source_label: str
+    heading_path: str
+    url: str | None
+    excerpt: str
+    times_retrieved: int
+    mean_similarity: float
+
+
+class TopicDetailOut(TopicOut):
+    history: list[TopicHistoryPoint]
+    member_queries: list[MemberQuery]
+    weakest_chunks: list[WeakChunk]
+
+
+class RecommendationOut(CamelModel):
+    id: str
+    cluster_id: str
+    cluster_name: str
+    category: str
+    headline: str
+    body: str
+    faq_answer: str | None
+    supporting_queries: list[str]
+    volume: int
+    growth: float
+    expected_effect: str
+
+
+class ReportSummaryOut(CamelModel):
+    id: str
+    period: str
+    generated_at: datetime
+    conversation_count: int
+    query_count: int
+    unanswered_rate: float
+
+
+class ReportOut(ReportSummaryOut):
+    summary: str
+    recommendations: list[RecommendationOut]
+
+
+class PeriodVolume(CamelModel):
+    period: str
+    query_count: int
+    mean_confidence: float
+
+
+class OverviewOut(CamelModel):
+    period: str | None
+    conversation_count: int
+    query_count: int
+    topic_count: int
+    unanswered_rate: float
+    mean_confidence: float
+    emerging_count: int
+    volume_by_period: list[PeriodVolume]
+
+
+class AnalyticsRunRequest(RequestModel):
+    period: Period | None = None
+
+
+class AnalyticsRunOut(CamelModel):
+    status: Literal["queued"] = "queued"
+    periods: list[str]

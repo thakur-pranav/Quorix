@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from app import embeddings, models, vector_store
 from app.config import settings
 from app.db import Base, DbSession, engine
-from app.routers import chat, sources
+from app.routers import chat, insights, sources
 from app.schemas import HealthOut
 from app.tenant import get_tenant
 
@@ -55,4 +55,5 @@ def health(db: DbSession) -> HealthOut:
 protected = APIRouter(prefix="/api", dependencies=[Depends(get_tenant)])
 protected.include_router(sources.router)
 protected.include_router(chat.router)
+protected.include_router(insights.router)
 app.include_router(protected)
