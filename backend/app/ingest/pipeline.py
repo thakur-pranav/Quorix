@@ -64,7 +64,7 @@ def _extract(db: Session, source: Source) -> Extracted:
             for page in pages
             for chunk in chunker.chunk_sections(chunker.sections_from_html(page.html), url=page.url)
         ]
-        return Extracted(chunks=chunks, page_count=len(pages))
+        return Extracted(chunks=dedupe(chunks), page_count=len(pages))
 
     path = upload_path(source)
     parser = chunker.PARSERS.get(path.suffix)
@@ -72,7 +72,23 @@ def _extract(db: Session, source: Source) -> Extracted:
         raise IngestError("uploaded file is missing or has an unsupported type")
     text = parser(path.read_bytes())
     chunks = chunker.chunk_sections(chunker.sections_from_plain(text, source.label))
-    return Extracted(chunks=chunks, page_count=1)
+    return Extracted(chunks=dedupe(chunks), page_count=1)
+
+
+def dedupe(chunks: list[chunker.RawChunk]) -> list[chunker.RawChunk]:
+    """Keep the first copy of each chunk text (ignoring case and spacing).
+
+    Sites repeat the same blurbs on many index pages. Duplicates would fill several of the
+    top-k retrieval slots with one passage and inflate confidence.
+    """
+    seen: set[str] = set()
+    unique: list[chunker.RawChunk] = []
+    for chunk in chunks:
+        key = " ".join(chunk.text.lower().split())
+        if key not in seen:
+            seen.add(key)
+            unique.append(chunk)
+    return unique
 
 
 def _index(db: Session, source: Source, extracted: Extracted) -> None:

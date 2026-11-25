@@ -126,3 +126,20 @@ def test_uploaded_text_file_is_ingested(
 def test_wrong_org_does_nothing(db: Session, website: Source) -> None:
     pipeline.run_ingestion(website.id, "org_b")
     assert _reload(db, website).status == "queued"
+
+
+def test_duplicate_blurbs_across_pages_are_indexed_once(
+    db: Session, website: Source, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    blurb = "Learn what you will be charged for and when charges occur on your monthly bill."
+    monkeypatch.setattr(
+        crawler,
+        "crawl",
+        lambda _url: [
+            Page("https://docs.example.com/", "Home", f"<h2>Billing</h2><p>{blurb}</p>"),
+            Page("https://docs.example.com/a", "A", f"<h2>Overview</h2><p>{blurb.upper()}</p>"),
+            Page("https://docs.example.com/b", "B", f"<h2>Plans</h2><p>{ARTICLE}</p>"),
+        ],
+    )
+    pipeline.run_ingestion(website.id, "org_a")
+    assert _reload(db, website).chunk_count == 2  # the blurb (any case) once, plus the article
