@@ -17,3 +17,7 @@ python-multipart==0.0.34
 # CI installs the CPU-only build first, see .github/workflows/ci.yml)
 sentence-transformers==6.3.0
 chromadb==1.5.9
+
+# Day 5: analytics (UMAP for dimensionality reduction, HDBSCAN from scikit-learn)
+umap-learn==0.6.0
+scikit-learn==1.9.1

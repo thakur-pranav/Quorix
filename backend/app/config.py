@@ -83,6 +83,41 @@ class Settings(BaseSettings):
     chroma_path: str = "./data/chroma"  # ":memory:" = in-process, nothing on disk (tests)
     chroma_collection: str = "chunks"
 
+    # Analytics batch (SPEC section 7).
+    umap_neighbours: int = 12  # capped at n - 1
+    umap_components: int = 5  # capped at n - 2
+    umap_min_dist: float = 0.0  # pack similar points tightly: good for clustering, bad for plots
+    umap_random_state: int = 42  # reproducible runs (costs UMAP's parallelism)
+    umap_compatibility_layout: bool = True  # standard UMAP layout; pinned before the default changes
+    hdbscan_min_cluster_size: int = 6  # PROVISIONAL until tuned on Day 5 (docs/EXPERIMENTS.md)
+    hdbscan_min_samples: int = 2
+    topic_keywords: int = 6
+    topic_name_samples: int = 8
+    topic_name_max_words: int = 8
+    topic_match_threshold: float = 0.72  # cosine between centroids = "same topic as last month"
+    trend_emerging_growth: float = 0.60
+    trend_emerging_max_previous: int = 25
+    trend_recurring_ratio: float = 0.7
+    trend_declining_ratio: float = 0.5
+    priority_weight_volume: float = 0.30
+    priority_weight_growth: float = 0.30
+    priority_weight_confidence: float = 0.25
+    priority_weight_severity: float = 0.15
+    priority_growth_cap: float = 3.0  # growth of 300%+ counts as "maximally rising"
+    severity_base: float = 0.35
+    severity_hard_step: float = 0.10
+    severity_soft_step: float = 0.05
+    severity_min: float = 0.05
+    severity_samples: int = 6
+    recommendation_count: int = 6
+    recommendation_supporting_queries: int = 5
+    category_product_severity: float = 0.65
+    category_faq_max_severity: float = 0.5
+    category_issue_severity: float = 0.6
+    category_issue_min_count: int = 6
+    category_issue_median_share: float = 0.4
+    category_fallback_product_severity: float = 0.55
+
     # Uploads (SPEC section 4).
     upload_dir: str = "./data/uploads"
     upload_max_bytes: int = 10 * 1024 * 1024

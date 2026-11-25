@@ -1,0 +1,84 @@
+"""Severity (SPEC section 7.6): how badly a topic blocks customers. 0 = curiosity, 1 = can't work.
+
+Two scorers. A keyword rule that always works and is easy to inspect, and an LLM score with a
+one-line reason. Final = the LLM score when it returns something valid, else the rule. The
+reason is stored either way, so "why is this ranked high?" always has an answer.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from dataclasses import dataclass
+
+from app import llm
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Words that signal a customer is blocked or losing money.
+HARD_TERMS = (
+    "declined", "failed", "failing", "fails", "error", "errors", "broken", "stuck", "lost",
+    "locked", "suspended", "blocked", "charged twice", "double charged", "overcharged",
+    "refund", "cannot", "can't", "not working", "doesn't work", "missing", "wrong", "urgent",
+)  # fmt: skip
+# Phrasing that signals curiosity rather than a blocker.
+SOFT_PHRASES = (
+    "how do i", "how can i", "where is", "where can i", "what does", "what is", "can i",
+    "is it possible", "difference between",
+)  # fmt: skip
+
+
+def _pattern(term: str) -> re.Pattern[str]:
+    """Whole words or phrases only: "lost" must not match "almost", "error" not "terror"."""
+    return re.compile(rf"(?<![\w']){re.escape(term)}(?![\w'])", re.IGNORECASE)
+
+
+_HARD = [(term, _pattern(term)) for term in HARD_TERMS]
+_SOFT = [(term, _pattern(term)) for term in SOFT_PHRASES]
+
+SYSTEM_PROMPT = """You rate customer support topics. Severity = how badly this topic blocks \
+customers from using the product or costs them money. 0.0 = idle curiosity, 0.5 = confusing \
+but they can continue, 1.0 = they cannot work or are losing money. Reply with JSON only: \
+{"severity": <number 0..1>, "reason": "<one sentence>"}"""
+
+
+@dataclass(frozen=True)
+class Severity:
+    score: float
+    reason: str
+    source: str  # "llm" or "rule"
+
+
+def rule_severity(text: str) -> Severity:
+    """Base 0.35, +0.10 per distinct blocking term, -0.05 per distinct curiosity phrase, clamped."""
+    hard = [term for term, pattern in _HARD if pattern.search(text)]
+    soft = [term for term, pattern in _SOFT if pattern.search(text)]
+    raw = settings.severity_base + settings.severity_hard_step * len(hard) - settings.severity_soft_step * len(soft)
+    score = round(max(settings.severity_min, min(1.0, raw)), 3)
+    parts = []
+    if hard:
+        parts.append(f"blocking words ({', '.join(hard[:5])})")
+    if soft:
+        parts.append(f"question phrasing ({', '.join(soft[:3])})")
+    return Severity(score, "Keyword rule: " + ("; ".join(parts) or "no strong signals"), "rule")
+
+
+def llm_severity(name: str, samples: list[str]) -> Severity | None:
+    """The LLM's score and reason, or None if the call fails or the output is unusable."""
+    questions = "\n".join(f"- {q}" for q in samples[: settings.severity_samples])
+    try:
+        data = llm.complete_json(f"Topic: {name}\nCustomer questions:\n{questions}", SYSTEM_PROMPT, temperature=0.0, max_tokens=300)
+        score = float(data["severity"])
+        reason = str(data.get("reason", "")).strip()
+    except (llm.LLMError, KeyError, TypeError, ValueError) as exc:
+        logger.info("LLM severity unavailable for %r: %s", name, exc)
+        return None
+    if not 0.0 <= score <= 1.0 or not reason:
+        return None  # LLM output is untrusted: out-of-range or empty means "no answer"
+    return Severity(round(score, 3), reason[:240], "llm")
+
+
+def score_severity(name: str, samples: list[str]) -> Severity:
+    rule = rule_severity(" ".join([name, *samples[: settings.severity_samples]]))
+    return llm_severity(name, samples) or rule
