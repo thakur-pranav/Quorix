@@ -31,8 +31,9 @@ class Settings(BaseSettings):
 
     # RAG (SPEC section 6).
     retrieval_top_k: int = 5
-    # PROVISIONAL until measured on Day 3 (docs/EXPERIMENTS.md). Below this: no LLM call.
-    low_confidence_threshold: float = 0.35
+    # Measured on Day 3 (docs/EXPERIMENTS.md): GitHub Billing docs, 30 labelled questions,
+    # 28/30 correct, all 20 covered questions above it. Below this: no LLM call.
+    low_confidence_threshold: float = 0.51
     low_confidence_passages: int = 2
     chat_temperature: float = 0.2
     chat_max_tokens: int = 600
