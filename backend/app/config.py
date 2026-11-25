@@ -31,9 +31,11 @@ class Settings(BaseSettings):
 
     # RAG (SPEC section 6).
     retrieval_top_k: int = 5
-    # Measured on Day 3 (docs/EXPERIMENTS.md): GitHub Billing docs, 30 labelled questions,
-    # 28/30 correct, all 20 covered questions above it. Below this: no LLM call.
-    low_confidence_threshold: float = 0.51
+    # Below this: no LLM call. Day 3 measured 0.51 on 30 clean hand-written questions; Day 5
+    # re-measured on 752 realistic seeded ones (docs/EXPERIMENTS.md): 0.51 wrongly refused 26%
+    # of answerable questions, 0.45 refuses 10% and lets 19% of off-topic ones reach the
+    # grounded LLM. Re-check on the Day 6 evaluation set once the whole pipeline runs.
+    low_confidence_threshold: float = 0.45
     low_confidence_passages: int = 2
     chat_temperature: float = 0.2
     chat_max_tokens: int = 600
@@ -89,7 +91,7 @@ class Settings(BaseSettings):
     umap_min_dist: float = 0.0  # pack similar points tightly: good for clustering, bad for plots
     umap_random_state: int = 42  # reproducible runs (costs UMAP's parallelism)
     umap_compatibility_layout: bool = True  # standard UMAP layout; pinned before the default changes
-    hdbscan_min_cluster_size: int = 6  # PROVISIONAL until tuned on Day 5 (docs/EXPERIMENTS.md)
+    hdbscan_min_cluster_size: int = 6  # tuned on Day 5 (docs/EXPERIMENTS.md): 4/6/8/10 swept
     hdbscan_min_samples: int = 2
     topic_keywords: int = 6
     topic_name_samples: int = 8

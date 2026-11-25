@@ -4,9 +4,9 @@ import { cn, formatPercent } from "@/lib/utils";
  * Retrieval confidence: how well the docs matched the question, measured BEFORE the answer was
  * written. Labelled by what it means for the user, not just a colour.
  *
- * Bands come from the Day 3 experiment (docs/EXPERIMENTS.md): below the backend threshold
- * (0.51) the backend refuses (`lowConfidence`). Covered and off-topic questions overlapped
- * between 0.548 and 0.611, so answers below 0.62 are flagged for the reader to check.
+ * Bands come from docs/EXPERIMENTS.md: below the backend threshold (0.45 since Day 5) the
+ * backend refuses (`lowConfidence`). Between it and 0.62 covered and off-topic questions
+ * overlap, so those answers are flagged for the reader to check against the sources.
  */
 const STRONG_MATCH = 0.62;
 
