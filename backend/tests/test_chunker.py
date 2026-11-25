@@ -152,3 +152,29 @@ def test_parse_docx() -> None:
 
 def test_parse_text_strips_bom_and_windows_newlines() -> None:
     assert PARSERS[".txt"]("﻿Line one\r\n\r\nLine two".encode()) == "Line one\n\nLine two"
+
+
+# --- Fix 2: drop link menus (link density) --------------------------------------------------
+
+
+def test_link_menus_are_dropped_but_prose_with_links_is_kept() -> None:
+    html = (
+        "<h2>Billing</h2>"
+        "<ul><li><a href='/a'>Payment methods</a></li><li><a href='/b'>Invoices and receipts</a></li></ul>"
+        "<p><a href='/c'>Getting started for admins</a> <a href='/d'>Getting started for new users</a></p>"
+        f"<p>Your card is charged on the first day of each month. See the "
+        f"<a href='/e'>refund policy</a> for details. {words(10, 'x')}</p>"
+    )
+    sections = sections_from_html(html)
+    assert len(sections) == 1
+    text = sections[0].text
+    assert "charged on the first day" in text and "refund policy" in text  # prose kept
+    assert "Payment methods" not in text and "Getting started" not in text  # menus dropped
+
+
+def test_link_density_threshold_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "chunk_max_link_density", 1.0)
+    html = "<h2>Menu</h2><p><a href='/a'>Payment methods</a></p>"
+    assert sections_from_html(html)[0].text == "Payment methods"

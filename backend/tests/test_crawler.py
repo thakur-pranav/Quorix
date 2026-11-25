@@ -12,8 +12,10 @@ from app.ingest.crawler import (
     CrawlError,
     crawl,
     extract_main_html,
+    in_section,
     is_crawlable_path,
     normalize_link,
+    section_prefix,
     site_key,
 )
 
@@ -181,3 +183,53 @@ def test_oversized_page_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(settings, "crawl_max_page_bytes", 50)
     assert crawled_paths(make_client(FAKE_SITE)) == []
+
+
+# --- Fix 1: stay inside the start URL's section ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("url", "prefix"),
+    [
+        (f"{SITE}/", ""),
+        (f"{SITE}/en/billing", "/en/billing"),
+        (f"{SITE}/en/billing/", "/en/billing"),
+        (f"{SITE}/help/index.html", "/help"),
+    ],
+)
+def test_section_prefix(url: str, prefix: str) -> None:
+    assert section_prefix(url) == prefix
+
+
+@pytest.mark.parametrize(
+    ("path", "inside"),
+    [("/en/billing", True), ("/en/billing/cards", True), ("/en/billing-faq", False), ("/en", False)],
+)
+def test_in_section_is_segment_aware(path: str, inside: bool) -> None:
+    assert in_section(f"{SITE}{path}", "/en/billing") is inside
+
+
+def test_crawl_stays_inside_the_start_section() -> None:
+    pages = crawl(f"{SITE}/guide", client=make_client(FAKE_SITE), sleep=no_sleep)
+    paths = [httpx.URL(p.url).path for p in pages]
+    assert paths == ["/guide", "/guide/deep", "/guide/deeper"]  # never "/" or "/legal"
+
+
+def test_section_comes_from_where_the_start_url_redirected() -> None:
+    routes = {
+        **FAKE_SITE,
+        "/help": (301, {"location": "/intl/en/help"}, ""),
+        "/intl/en/help": (200, {"content-type": "text/html"}, page("<a href='/intl/en/help/cards'>Cards</a><a href='/pricing'>Pricing</a>")),
+        "/intl/en/help/cards": (200, {"content-type": "text/html"}, page("<h1>Cards</h1>")),
+        "/pricing": (200, {"content-type": "text/html"}, page("<h1>Pricing</h1>")),
+    }
+    pages = crawl(f"{SITE}/help", client=make_client(routes), sleep=no_sleep)
+    assert [httpx.URL(p.url).path for p in pages] == ["/intl/en/help", "/intl/en/help/cards"]
+
+
+def test_section_limit_can_be_switched_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "crawl_stay_in_section", False)
+    pages = crawl(f"{SITE}/guide", client=make_client(FAKE_SITE), sleep=no_sleep)
+    assert "/" in [httpx.URL(p.url).path for p in pages]

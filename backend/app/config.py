@@ -62,12 +62,17 @@ class Settings(BaseSettings):
     crawl_max_redirects: int = 5
     crawl_max_page_bytes: int = 5 * 1024 * 1024
     crawl_user_agent: str = "Quorix/1.0 (+https://github.com/thakur-pranav/Quorix)"
+    # Only follow links under the start page's path ("/en/billing" -> "/en/billing/..."),
+    # not the whole domain. Stricter than SPEC 5.1's "same site"; see docs/NOTES.md Day 3.
+    crawl_stay_in_section: bool = True
 
     # Chunker (SPEC section 5.4).
     chunk_max_words: int = 220
     chunk_overlap_words: int = 40
     chunk_min_words: int = 15
     chunk_merge_below_words: int = 110
+    # Drop text blocks where more than this share of the words are link text (menus, link lists).
+    chunk_max_link_density: float = 0.6
 
     # Embeddings and vector store (SPEC sections 5.5 and 5.6).
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"

@@ -38,6 +38,15 @@ class RawChunk:
 # --- Splitting into sections ----------------------------------------------------------------
 
 
+def link_density(element: Tag, text: str) -> float:
+    """Share of the block's words that are link text. 1.0 = pure navigation, 0.0 = prose."""
+    total = len(text.split())
+    if total == 0:
+        return 0.0
+    linked = sum(len(a.get_text(" ", strip=True).split()) for a in element.find_all("a"))
+    return linked / total
+
+
 def sections_from_html(html: str) -> list[Section]:
     """Walk headings and text blocks in document order, tracking the heading path."""
     soup = BeautifulSoup(html, "html.parser")
@@ -60,6 +69,8 @@ def sections_from_html(html: str) -> list[Section]:
         text = element.get_text(" ", strip=True)
         if not text:
             continue
+        if element.name in TEXT_BLOCKS and link_density(element, text) > settings.chunk_max_link_density:
+            continue  # a menu or link list: matches many questions loosely, answers none
 
         if element.name in HEADINGS:
             flush()  # everything so far belongs to the previous heading

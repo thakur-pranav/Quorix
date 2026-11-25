@@ -80,6 +80,24 @@ def is_crawlable_path(url: str) -> bool:
     return not (segments & SKIP_PATH_SEGMENTS)  # whole segments: /accounting is fine, /account isn't
 
 
+def section_prefix(url: str) -> str:
+    """The path a crawl must stay under. "" means the whole site.
+
+    `/en/billing` -> `/en/billing`; `/help/` -> `/help`; `/help/index.html` -> `/help`.
+    """
+    path = urlsplit(url).path or "/"
+    last_segment = path.rsplit("/", 1)[-1]
+    if "." in last_segment:  # a file name, e.g. index.html: its folder is the section
+        path = path.rsplit("/", 1)[0]
+    return path.rstrip("/")
+
+
+def in_section(url: str, prefix: str) -> bool:
+    """Segment-aware: prefix `/en/billing` matches `/en/billing/x`, not `/en/billing-faq`."""
+    path = urlsplit(url).path
+    return not prefix or path == prefix or path.startswith(prefix + "/")
+
+
 # --- HTML -----------------------------------------------------------------------------------
 
 
@@ -185,6 +203,9 @@ def crawl(
             raise CrawlError("robots.txt is unreachable or disallows crawling")
 
         site = site_key(start)
+        # Set from the first page's FINAL URL: `slack.com/help` redirects to `/intl/en-in/help`,
+        # and a section taken from the typed URL would then exclude every real page.
+        section: str | None = None
         queue: deque[tuple[str, int]] = deque([(start, 0)])
         seen: set[str] = {start}
         pages: list[Page] = []
@@ -209,6 +230,10 @@ def crawl(
                 or site_key(fetched.url) != site  # a redirect may have left the site
             ):
                 continue
+            if section is None:
+                section = section_prefix(fetched.url) if settings.crawl_stay_in_section else ""
+            elif not in_section(fetched.url, section):
+                continue  # a redirect left the section
             seen.add(fetched.url)
 
             title, main_html, hrefs = extract_main_html(fetched.text)
@@ -222,6 +247,7 @@ def crawl(
                     link is not None
                     and link not in seen
                     and site_key(link) == site
+                    and in_section(link, section or "")
                     and is_crawlable_path(link)
                 ):
                     seen.add(link)
