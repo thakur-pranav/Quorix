@@ -92,7 +92,7 @@ def retrieve_only(question: str, org: str) -> list[Hit]:
     return vector_store.search(embeddings.embed_one(question), settings.retrieval_top_k, org)
 
 
-def _conversation(db: Session, org: str, session_id: str) -> Conversation:
+def _conversation(db: Session, org: str, session_id: str, *, synthetic: bool, started_at: datetime) -> Conversation:
     existing = db.scalar(
         select(Conversation).where(
             Conversation.organization_id == org, Conversation.session_id == session_id
@@ -100,10 +100,56 @@ def _conversation(db: Session, org: str, session_id: str) -> Conversation:
     )
     if existing is not None:
         return existing
-    conversation = Conversation(organization_id=org, session_id=session_id)
+    conversation = Conversation(
+        organization_id=org, session_id=session_id, synthetic=synthetic, started_at=started_at
+    )
     db.add(conversation)
     db.flush()
     return conversation
+
+
+@dataclass(frozen=True)
+class RecordedQuestion:
+    conversation_id: str
+    hits: list[Hit]
+    confidence: float
+
+
+def record_question(
+    db: Session,
+    org: str,
+    session_id: str,
+    question: str,
+    *,
+    asked_at: datetime | None = None,
+    synthetic: bool = False,
+) -> RecordedQuestion:
+    """Retrieve (org-scoped), compute confidence and log the customer message. Commits.
+
+    Shared by live chat and the seed script, so seeded history goes through exactly the same
+    retrieval and confidence code as real questions. `asked_at` lets the seeder date questions
+    into past months; live chat always uses now.
+    """
+    asked_at = asked_at or datetime.now(timezone.utc)
+    conversation = _conversation(db, org, session_id, synthetic=synthetic, started_at=asked_at)
+    hits = retrieve_only(question, org)
+    scores = [hit.similarity for hit in hits]
+    confidence = compute_confidence(scores)  # before generation, from retrieval only
+    db.add(
+        Message(
+            organization_id=org,
+            conversation_id=conversation.id,
+            role="customer",
+            text=question,
+            confidence=confidence,
+            retrieved_chunk_ids=[hit.chunk_id for hit in hits],
+            retrieved_scores=scores,
+            created_at=asked_at,
+            period=asked_at.strftime("%Y-%m"),
+        )
+    )
+    db.commit()
+    return RecordedQuestion(conversation.id, hits, confidence)
 
 
 @dataclass(frozen=True)
@@ -135,32 +181,14 @@ def _reply(question: str, hits: list[Hit], confidence: float) -> _Reply:
 
 def answer(db: Session, org: str, session_id: str, question: str) -> ChatResponse:
     """The whole chat turn. Logs the customer message before generating, so it's never lost."""
-    conversation = _conversation(db, org, session_id)
-    hits = retrieve_only(question, org)
-    scores = [hit.similarity for hit in hits]
-    confidence = compute_confidence(scores)  # before generation, from retrieval only
-
-    asked_at = datetime.now(timezone.utc)
-    db.add(
-        Message(
-            organization_id=org,
-            conversation_id=conversation.id,
-            role="customer",
-            text=question,
-            confidence=confidence,
-            retrieved_chunk_ids=[hit.chunk_id for hit in hits],
-            retrieved_scores=scores,
-            created_at=asked_at,
-            period=asked_at.strftime("%Y-%m"),
-        )
-    )
-    db.commit()  # the question is logged even if generation crashes below
+    recorded = record_question(db, org, session_id, question)  # committed before the LLM runs
+    hits, confidence = recorded.hits, recorded.confidence
 
     reply = _reply(question, hits, confidence)
     replied_at = datetime.now(timezone.utc)
     assistant = Message(
         organization_id=org,
-        conversation_id=conversation.id,
+        conversation_id=recorded.conversation_id,
         role="assistant",
         text=reply.text,
         confidence=confidence,

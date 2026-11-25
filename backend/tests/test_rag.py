@@ -169,3 +169,19 @@ def test_retrieve_only_logs_nothing(db: Session) -> None:
     index("org_a", REFUND)
     hits = engine.retrieve_only("refunds", "org_a")
     assert hits and db.scalars(select(Message)).all() == []
+
+
+def test_record_question_logs_backdated_synthetic_history(db: Session) -> None:
+    """The seed script's path: same retrieval and confidence as chat, dated into the past, no LLM."""
+    from datetime import datetime, timezone
+
+    index("org_a", REFUND)
+    asked_at = datetime(2026, 9, 14, 10, 30, tzinfo=timezone.utc)
+    recorded = engine.record_question(db, "org_a", "seed-1", "how long do refunds take", asked_at=asked_at, synthetic=True)
+
+    message = db.scalars(select(Message)).one()
+    assert message.period == "2026-09" and message.created_at == asked_at
+    assert message.confidence == recorded.confidence == compute_confidence([h.similarity for h in recorded.hits])
+    conversation = db.get(Conversation, recorded.conversation_id)
+    assert conversation is not None and conversation.synthetic and conversation.started_at == asked_at
+    assert len(db.scalars(select(Message)).all()) == 1  # no assistant reply: nothing generated
