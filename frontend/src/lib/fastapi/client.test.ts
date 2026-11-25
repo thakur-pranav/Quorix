@@ -16,7 +16,7 @@ import { BackendError, fastapi, readableError } from "./client";
 afterEach(() => vi.unstubAllGlobals());
 
 function stubFetch(response: Response) {
-  const spy = vi.fn(async (_url: string, _init: RequestInit) => response);
+  const spy = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => response);
   vi.stubGlobal("fetch", spy);
   return spy;
 }
