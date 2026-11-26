@@ -1,40 +1,22 @@
-"""Trends and ranking (SPEC sections 7.7 to 7.10).
+"""Trends and ranking (SPEC sections 7.8 to 7.10).
 
-Matching: HDBSCAN's labels are arbitrary per run, so "is this October's billing topic the same as
-September's?" is answered by content: the cosine similarity of the two topics' centroids.
+No matching step: the batch clusters the whole window once, so a topic's monthly counts are
+its own (docs/NOTES.md, Day 5). `cosine` stays for the tuning script's matching experiment.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 import numpy as np
 
 from app.config import settings
 
 
-@dataclass(frozen=True)
-class PreviousTopic:
-    id: str
-    centroid: Sequence[float]
-    query_count: int
-
-
 def cosine(a: Sequence[float], b: Sequence[float]) -> float:
     va, vb = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
     denominator = float(np.linalg.norm(va) * np.linalg.norm(vb))
     return float(va @ vb) / denominator if denominator else 0.0
-
-
-def match_previous(centroid: Sequence[float], previous: list[PreviousTopic]) -> PreviousTopic | None:
-    """The most similar last-period topic, if it clears the 0.72 threshold."""
-    best, best_score = None, -1.0
-    for candidate in previous:
-        score = cosine(centroid, candidate.centroid)
-        if score > best_score:
-            best, best_score = candidate, score
-    return best if best is not None and best_score >= settings.topic_match_threshold else None
 
 
 def compute_growth(current: int, previous: int) -> float:
@@ -48,7 +30,7 @@ def classify_trend(current: int, previous: int, growth: float, *, has_previous_p
     """SPEC 7.9, checked in order. `baseline` fixes the zip's "every first-month topic is emerging"."""
     if not has_previous_period:
         return "baseline"  # nothing to compare with yet
-    if previous == 0 and current >= settings.hdbscan_min_cluster_size:
+    if previous == 0 and current >= settings.topic_min_period_questions:
         return "emerging"  # new, and already a real cluster
     if growth >= settings.trend_emerging_growth and previous <= settings.trend_emerging_max_previous:
         return "emerging"  # growing fast from a small base

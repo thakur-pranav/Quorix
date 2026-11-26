@@ -1,4 +1,4 @@
-"""The batch end to end on a planted two-month story (fake embeddings, no LLM)."""
+"""The batch end to end on planted stories (fake embeddings, no LLM): topics over time."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.analytics.batch import run_all_periods, run_batch
+from app.analytics.batch import growth_text, run_analysis
 from app.config import settings
 from app.models import ClusterMember, Conversation, Message, Recommendation, Report, TopicCluster
 
@@ -66,7 +66,7 @@ def topics_by_word(db: Session, period: str, org: str = "org_a") -> dict[str, To
 
 def test_two_month_story(story: Session) -> None:
     db = story
-    results = run_all_periods(db, "org_a")
+    results = run_analysis(db, "org_a")
     assert [(r.period, r.topic_count) for r in results] == [("2026-09", 3), ("2026-10", 3)]
 
     september = topics_by_word(db, "2026-09")
@@ -77,13 +77,16 @@ def test_two_month_story(story: Session) -> None:
     assert october["password"].trend == "recurring"  # 8 → 8
     assert october["invoice"].trend == "declining"  # 14 → 6
     assert october["refund"].previous_cluster_id == september["refund"].id
+    # Clustered once: the same topic in both months, not two clusters glued together by similarity.
+    assert october["refund"].name == september["refund"].name
+    assert october["refund"].centroid == september["refund"].centroid
     assert (october["refund"].query_count, october["refund"].previous_query_count) == (20, 8)
     assert october["refund"].growth == pytest.approx(1.5)
     assert october["refund"].rank == 1  # biggest, fastest-growing, worst-answered
 
     report = db.scalars(select(Report).where(Report.organization_id == "org_a", Report.period == "2026-10")).one()
     assert report.query_count == 34 and report.conversation_count == 3
-    assert report.unanswered_rate == pytest.approx(20 / 34, abs=1e-4)  # refund questions are below 0.51
+    assert report.unanswered_rate == pytest.approx(20 / 34, abs=1e-4)  # refund questions are below the threshold
     assert report.summary  # templated fallback without an LLM
 
     recommendations = report.recommendations
@@ -95,23 +98,23 @@ def test_two_month_story(story: Session) -> None:
 
 def test_running_a_period_twice_gives_the_same_result(story: Session) -> None:
     db = story
-    run_all_periods(db, "org_a")
+    run_analysis(db, "org_a")
 
     def snapshot() -> list[tuple[str, int, int, str, float]]:
         rows = db.scalars(select(TopicCluster).where(TopicCluster.period == "2026-10", TopicCluster.organization_id == "org_a"))
         return sorted((t.name, t.rank, t.query_count, t.trend, t.priority) for t in rows)
 
     first = snapshot()
-    run_batch(db, "org_a", "2026-10")
+    run_analysis(db, "org_a")
     assert snapshot() == first
     assert db.scalar(select(func.count()).select_from(Report).where(Report.period == "2026-10", Report.organization_id == "org_a")) == 1
     assert db.scalar(select(func.count()).select_from(ClusterMember).where(ClusterMember.organization_id == "org_a")) == 30 + 34
-    assert db.scalar(select(func.count()).select_from(Recommendation).where(Recommendation.organization_id == "org_a")) == 6
+    assert db.scalar(select(func.count()).select_from(Recommendation).where(Recommendation.organization_id == "org_a")) == 6  # 3 topics per month → 3 recommendations each
 
 
 def test_batch_is_tenant_scoped(story: Session) -> None:
     db = story
-    run_all_periods(db, "org_a")
+    run_analysis(db, "org_a")
     org_b = db.scalars(select(TopicCluster).where(TopicCluster.organization_id == "org_b")).all()
     assert org_b == []  # org_a's run never touched org_b
     member_messages = db.scalars(
@@ -122,6 +125,42 @@ def test_batch_is_tenant_scoped(story: Session) -> None:
 
 def test_too_few_questions_produces_no_report(db: Session) -> None:
     ask(db, "org_a", "2026-11", "refund", 5, 0.5)
-    result = run_batch(db, "org_a", "2026-11")
+    [result] = run_analysis(db, "org_a")
     assert result.report_id is None and result.topic_count == 0
     assert db.scalars(select(Report)).all() == []
+
+
+def test_a_topic_that_skips_a_month_restarts_without_a_link(db: Session) -> None:
+    """Refund: 8 → 3 → 10. October's 3 is under topic_min_period_questions, so no October row;
+    November compares with the TRUE October count (3), and has no row to link to."""
+    for period, refunds in (("2026-09", 8), ("2026-10", 3), ("2026-11", 10)):
+        ask(db, "org_a", period, "refund", refunds, 0.30)
+        ask(db, "org_a", period, "password", 8, 0.75)
+        ask(db, "org_a", period, "invoice", 8, 0.80)
+    run_analysis(db, "org_a")
+
+    assert "refund" not in topics_by_word(db, "2026-10")
+    refund = topics_by_word(db, "2026-11")["refund"]
+    assert (refund.query_count, refund.previous_query_count, refund.previous_cluster_id) == (10, 3, None)
+    assert refund.trend == "emerging"  # +233% from a small base
+    password = topics_by_word(db, "2026-11")["password"]
+    assert password.previous_cluster_id == topics_by_word(db, "2026-10")["password"].id  # chain intact
+
+
+def test_only_the_window_is_analysed(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "analytics_window_months", 2)
+    for period in ("2026-08", "2026-09", "2026-10"):
+        ask(db, "org_a", period, "refund", 8, 0.30)
+        ask(db, "org_a", period, "password", 8, 0.75)
+    results = run_analysis(db, "org_a")
+
+    assert [r.period for r in results] == ["2026-09", "2026-10"]  # August is outside the window
+    assert topics_by_word(db, "2026-08") == {}
+    assert {t.trend for t in topics_by_word(db, "2026-09").values()} == {"baseline"}  # oldest in window
+
+
+def test_growth_text_caps_like_the_priority_formula() -> None:
+    assert growth_text(0, 17.0, "emerging") == "new this month"
+    assert growth_text(0, 17.0, "baseline") == "first analysed month, no comparison"  # not "new"
+    assert growth_text(8, 1.5, "emerging") == "+150%"
+    assert growth_text(1, 16.0, "emerging") == "more than +300%"  # 1 → 17 is true, but reads as a crisis

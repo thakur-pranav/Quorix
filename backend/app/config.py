@@ -97,17 +97,25 @@ class Settings(BaseSettings):
     chroma_collection: str = "chunks"
 
     # Analytics batch (SPEC section 7).
-    umap_neighbours: int = 12  # capped at n - 1
+    # Tuned on Day 5 for the whole-window clustering (~750 questions, docs/EXPERIMENTS.md):
+    # 30 neighbours keep a topic together across 3x more points than per-month clustering had.
+    umap_neighbours: int = 30  # capped at n - 1
     umap_components: int = 5  # capped at n - 2
     umap_min_dist: float = 0.0  # pack similar points tightly: good for clustering, bad for plots
     umap_random_state: int = 42  # reproducible runs (costs UMAP's parallelism)
     umap_compatibility_layout: bool = True  # standard UMAP layout; pinned before the default changes
-    hdbscan_min_cluster_size: int = 6  # tuned on Day 5 (docs/EXPERIMENTS.md): 4/6/8/10 swept
+    # Over the whole window, not per month. Day 5 sweep 6/10/15 x neighbours 12/30: 15 gave the
+    # fewest false "emerging" topics. Scales with the window: revisit if the volume changes a lot.
+    hdbscan_min_cluster_size: int = 15
     hdbscan_min_samples: int = 2
     topic_keywords: int = 6
     topic_name_samples: int = 8
     topic_name_max_words: int = 8
-    topic_match_threshold: float = 0.72  # cosine between centroids = "same topic as last month"
+    # Topics over time (docs/NOTES.md, Day 5): the whole window is clustered ONCE, so a topic is
+    # the same object in every month and trends compare its own monthly counts. Replaced
+    # per-month clustering + centroid matching, which split topics differently each month.
+    analytics_window_months: int = 6  # the latest N months with questions; the oldest is the baseline
+    topic_min_period_questions: int = 6  # a topic shows up in a month with at least this many questions
     trend_emerging_growth: float = 0.60
     trend_emerging_max_previous: int = 25
     trend_recurring_ratio: float = 0.7

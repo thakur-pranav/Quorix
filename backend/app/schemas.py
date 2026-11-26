@@ -94,9 +94,6 @@ class ChatResponse(CamelModel):
 
 # --- Analytics (SPEC sections 4 and 7) ------------------------------------------------------
 
-Period = Annotated[str, StringConstraints(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
-
-
 class TopicOut(CamelModel):
     id: str
     period: str
@@ -191,7 +188,10 @@ class OverviewOut(CamelModel):
 
 
 class AnalyticsRunRequest(RequestModel):
-    period: Period | None = None
+    """No options: the run always re-analyses the whole window, since topics span all its months.
+
+    An empty model still earns its place: unknown fields (like the old `period`) are a 422.
+    """
 
 
 class AnalyticsRunOut(CamelModel):

@@ -18,8 +18,13 @@ export function TrendBadge({ trend, className }: { trend: Trend; className?: str
   );
 }
 
+/** Same cap as the backend's priority formula (`priority_growth_cap`): past +300% the exact
+ * number (1 → 17 is +1600%) misleads more than it informs. */
+const GROWTH_CAP_PCT = 300;
+
 export function formatGrowth(growth: number, previous: number): string {
   if (previous === 0) return "new";
   const pct = Math.round(growth * 100);
+  if (pct > GROWTH_CAP_PCT) return `>+${GROWTH_CAP_PCT}%`;
   return `${pct > 0 ? "+" : ""}${pct}%`;
 }

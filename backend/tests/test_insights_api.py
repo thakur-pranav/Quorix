@@ -81,6 +81,8 @@ def test_other_orgs_see_nothing(analysed: TestClient) -> None:
 
 def test_run_validation(client: TestClient) -> None:
     assert client.post("/api/analytics/run", json={}).status_code == 401
-    assert client.post("/api/analytics/run", headers=A, json={"period": "2026-13"}).status_code == 422
-    assert client.post("/api/analytics/run", headers=A, json={"period": "2026-01"}).status_code == 404
+    # One run always covers the whole window: a per-month option would split topics again.
+    assert client.post("/api/analytics/run", headers=A, json={"period": "2026-10"}).status_code == 422
+    nothing = client.post("/api/analytics/run", headers=A, json={})
+    assert nothing.status_code == 202 and nothing.json()["periods"] == []  # no questions: nothing queued
     assert client.get("/api/reports/latest", headers=A).json()["detail"].startswith("No report yet")

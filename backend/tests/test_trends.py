@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.analytics.trends import PreviousTopic, classify_trend, compute_growth, cosine, match_previous, priority
+from app.analytics.trends import classify_trend, compute_growth, cosine, priority
 
 
 def test_priority_matches_the_spec_example() -> None:
@@ -45,9 +45,7 @@ def test_growth() -> None:
     assert compute_growth(7, 0) == 7.0  # new topic: its whole volume
 
 
-def test_match_previous_uses_the_threshold() -> None:
-    previous = [PreviousTopic("ins_a", [1.0, 0.0, 0.0], 10), PreviousTopic("ins_b", [0.0, 1.0, 0.0], 5)]
-    assert match_previous([0.9, 0.1, 0.0], previous).id == "ins_a"  # type: ignore[union-attr]
-    assert match_previous([0.6, 0.6, 0.5], previous) is None  # closest is ~0.57 < 0.72
-    assert match_previous([1.0, 0.0, 0.0], []) is None
+def test_cosine() -> None:
+    assert cosine([1.0, 0.0], [2.0, 0.0]) == pytest.approx(1.0)  # direction, not length
+    assert cosine([1.0, 0.0], [0.0, 1.0]) == 0.0
     assert cosine([0.0, 0.0], [1.0, 0.0]) == 0.0  # no division by zero

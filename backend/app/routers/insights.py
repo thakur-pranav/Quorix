@@ -179,24 +179,22 @@ def list_reports(tenant: CurrentTenant, db: DbSession) -> list[Report]:
     return list(db.scalars(select(Report).where(Report.organization_id == tenant.org).order_by(Report.period.desc())))
 
 
-def _run_in_background(org: str, period: str | None) -> None:
+def _run_in_background(org: str) -> None:
     """Own session: the request's session is closed by the time this runs."""
     with SessionLocal() as db:
         try:
-            if period:
-                batch.run_batch(db, org, period)
-            else:
-                batch.run_all_periods(db, org)
+            batch.run_analysis(db, org)
         except Exception:
             logger.exception("analytics batch failed for %s", org)
 
 
 @router.post("/analytics/run", response_model=AnalyticsRunOut, status_code=status.HTTP_202_ACCEPTED)
-def run_analytics(body: AnalyticsRunRequest, tenant: CurrentTenant, db: DbSession, tasks: BackgroundTasks) -> AnalyticsRunOut:
-    """Queue the batch (one period, or all periods oldest first). 202: it runs after the response."""
-    available = batch.periods_with_questions(db, tenant.org)
-    if body.period is not None and body.period not in available:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"No questions in {body.period}")
-    periods = [body.period] if body.period else available
-    tasks.add_task(_run_in_background, tenant.org, body.period)
+def run_analytics(_body: AnalyticsRunRequest, tenant: CurrentTenant, db: DbSession, tasks: BackgroundTasks) -> AnalyticsRunOut:
+    """Queue a re-analysis of the window (all its months together). 202: it runs after the response.
+
+    The body has no options but is still declared, so unknown fields are rejected with 422.
+    """
+    periods = batch.window_periods(db, tenant.org)
+    if periods:
+        tasks.add_task(_run_in_background, tenant.org)
     return AnalyticsRunOut(periods=periods)
