@@ -13,7 +13,7 @@ import time
 
 from sqlalchemy import select
 
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
 from app.ingest import pipeline
 from app.ingest.ssrf import assert_public_url
 from app.models import Source
@@ -28,7 +28,6 @@ def main() -> None:
 
     logging.basicConfig(level=logging.WARNING)
     assert_public_url(args.url)
-    Base.metadata.create_all(engine)  # dev convenience, same as the app's lifespan
 
     with SessionLocal() as db:
         source = db.scalar(

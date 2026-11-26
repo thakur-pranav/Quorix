@@ -29,7 +29,7 @@ import jwt
 from sqlalchemy import delete, select, update
 
 from app.config import settings
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
 from app.models import Conversation, Report, TopicCluster
 from app.rag import engine as rag
 
@@ -147,7 +147,6 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    Base.metadata.create_all(engine)
     if args.reset:
         reset(args.org)
     rng = random.Random(args.seed)

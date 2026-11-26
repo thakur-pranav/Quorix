@@ -21,3 +21,7 @@ chromadb==1.5.9
 # Day 5: analytics (UMAP for dimensionality reduction, HDBSCAN from scikit-learn)
 umap-learn==0.6.0
 scikit-learn==1.9.1
+
+# Day 6: migrations and Postgres (psycopg 3; DATABASE_URL uses postgresql+psycopg://)
+alembic==1.20.1
+psycopg[binary]==3.3.9

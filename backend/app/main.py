@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 
 from app import embeddings, models, vector_store
 from app.config import settings
-from app.db import Base, DbSession, engine
+from app.db import DbSession, engine
 from app.routers import chat, insights, sources
 from app.schemas import HealthOut
 from app.tenant import get_tenant
@@ -19,9 +19,8 @@ from app.tenant import get_tenant
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Startup. Dev/test only: production schema changes go through Alembic (Day 6, SPEC section 3).
-    if settings.environment != "production":
-        Base.metadata.create_all(engine)
+    # Startup. The schema is owned by Alembic: run `alembic upgrade head` before starting the API
+    # (create_all could create missing tables but never change existing ones).
     if settings.warm_models_on_startup:
         # Load MiniLM and open Chroma now, so the first chat question doesn't wait ~20 s.
         embeddings.embed_one("warm-up")
