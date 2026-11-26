@@ -134,8 +134,9 @@ def main() -> None:
                 rows = [evaluate_question(db, q, args.org, extra_k) for q in subset]
             experiment[str(extra_k)] = summary(rows)
             print(f"experiment top_k={extra_k}:", experiment[str(extra_k)])
-        if experiment:
-            report["top_k_experiment"] = {"questions": len(subset), "results": experiment}
+        if experiment:  # merge: an --experiment-only re-run keeps the other k values' rows
+            previous = report.get("top_k_experiment", {}).get("results", {})  # type: ignore[union-attr]
+            report["top_k_experiment"] = {"questions": len(subset), "results": {**previous, **experiment}}
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
