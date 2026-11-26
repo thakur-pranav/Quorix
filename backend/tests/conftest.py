@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 from tests.tokens import TEST_JWT_SECRET
 
@@ -76,3 +77,24 @@ def client(db: Session) -> Iterator[TestClient]:
         # Close the test's session before the app's shutdown runs engine.dispose(), which
         # closes the single shared in-memory connection (StaticPool).
         db.close()
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """On GitHub Actions, turn each test failure into an annotation (`::error` workflow command).
+
+    Annotations are readable without logging in (public API) and show inline on pull requests,
+    so a CI failure can be diagnosed without downloading the logs. No plugin needed.
+    """
+    if not os.environ.get("GITHUB_ACTIONS") or not report.failed:
+        return
+
+    def escape(text: str, *, prop: bool = False) -> str:
+        """GitHub's workflow-command escaping; property values also escape ':' and ','."""
+        text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        return text.replace(":", "%3A").replace(",", "%2C") if prop else text
+
+    path, line, _ = report.location
+    message = "\n".join(str(report.longrepr).splitlines()[-8:])[:1500]
+    title = escape(report.nodeid, prop=True)
+    # The real stdout: pytest may still be capturing output while this hook runs.
+    sys.__stdout__.write(f"\n::error file=backend/{path},line={(line or 0) + 1},title={title}::{escape(message)}\n")
