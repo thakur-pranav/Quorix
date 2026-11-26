@@ -107,3 +107,44 @@ jobs:
 
       - name: Production build
         run: pnpm build
+
+  docker:
+    name: Docker stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Throwaway secrets for this run (never real ones)
+        run: |
+          {
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "BACKEND_JWT_SECRET=$(openssl rand -hex 32)"
+            echo "AUTH_SECRET=$(openssl rand -hex 32)"
+          } > .env
+
+      - name: Validate the compose file
+        run: docker compose config --quiet
+
+      - name: Build the images and start the stack (waits for every health check)
+        run: docker compose up --build --detach --wait --wait-timeout 420
+
+      - name: Smoke test
+        run: |
+          # The web app answers on the only published port.
+          curl --fail --silent --show-error http://localhost:3000/login > /dev/null
+          # The API isn't published: check it from inside its own container.
+          docker compose exec -T backend python -c "import urllib.request, json; print(json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/health')))"
+          # Migrations ran at startup: the vector column exists in Postgres.
+          docker compose exec -T postgres psql -U quorix -d quorix -tAc "select format_type(atttypid, atttypmod) from pg_attribute where attrelid = 'chunks'::regclass and attname = 'embedding'" | grep -q "vector(384)"
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep quorix
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes

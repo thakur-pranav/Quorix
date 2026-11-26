@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Docker builds set NEXT_OUTPUT=standalone: Next copies only the files the server needs into
+  // .next/standalone (a minimal node_modules), so the runtime image stays small. Normal builds
+  // and `pnpm dev` are unchanged.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   // Cache Components stays OFF: every page sits behind login and shows live, per-tenant data,
   // so there's nothing to prerender. Pages that read the session render per request.
   reactCompiler: true,

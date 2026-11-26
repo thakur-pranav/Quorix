@@ -14,7 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # "production" disables dev-only shortcuts such as creating tables at startup.
+    # "production" (set by the Docker image) refuses SQLite: see _production_needs_a_server_database.
     environment: Literal["development", "test", "production"] = "development"
 
     # LLM (SPEC section 6). "none" = no LLM: chat degrades to returning passages.
@@ -171,6 +171,13 @@ class Settings(BaseSettings):
         if required is not None and not all(required):
             name = self.llm_provider.upper()
             raise ValueError(f"LLM_PROVIDER={self.llm_provider} needs {name}_API_KEY and {name}_MODEL")
+        return self
+
+    @model_validator(mode="after")
+    def _production_needs_a_server_database(self) -> Settings:
+        """A SQLite file inside a container is wiped on every redeploy: fail fast instead."""
+        if self.environment == "production" and self.database_url.startswith("sqlite"):
+            raise ValueError("ENVIRONMENT=production needs a Postgres DATABASE_URL, not SQLite")
         return self
 
     @property

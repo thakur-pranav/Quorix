@@ -1,0 +1,13 @@
+# Only what the build needs: never node_modules (rebuilt inside), build output or secrets.
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+e2e/
+scripts/
+**/*.test.ts
+Dockerfile
+.dockerignore

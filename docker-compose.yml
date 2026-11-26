@@ -1,0 +1,70 @@
+# The whole stack on one machine: `docker compose up --build`, then open http://localhost:3000.
+# Secrets come from ./.env (copy .env.example); compose refuses to start if one is missing.
+#
+# Only the web app publishes a port. The API, Postgres and Mongo are reachable on compose's
+# private network only, so "the browser never calls FastAPI" holds at the network level too.
+
+name: quorix
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18 # same Postgres and pgvector as Neon and CI
+    environment:
+      POSTGRES_USER: quorix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: quorix
+    volumes:
+      - pgdata:/var/lib/postgresql # Postgres 18 images keep their data under this path
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quorix -d quorix"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo:
+    image: mongo:8.0 # users and the login rate limit (frontend)
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://quorix:${POSTGRES_PASSWORD}@postgres:5432/quorix
+      BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET:?set BACKEND_JWT_SECRET in .env}
+      CORS_ORIGINS: http://localhost:3000
+      LLM_PROVIDER: ${LLM_PROVIDER:-none} # "none" works with no key: chat returns the passages
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-}
+      JUDGE_MODEL: ${JUDGE_MODEL:-}
+    volumes:
+      - uploads:/app/data/uploads # uploaded files survive container restarts
+    depends_on:
+      postgres:
+        condition: service_healthy # migrations run at startup, so the database must be up
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/quorix
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET}
+      FASTAPI_BASE_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  mongodata:
+  uploads:

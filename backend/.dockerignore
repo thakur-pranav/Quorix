@@ -1,0 +1,13 @@
+# Only what the image needs goes into the build context: smaller, faster, and no secrets.
+.env
+.env.*
+!.env.example
+.venv/
+data/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+tests/
+Dockerfile
+.dockerignore
