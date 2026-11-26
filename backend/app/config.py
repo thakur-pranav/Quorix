@@ -142,6 +142,14 @@ class Settings(BaseSettings):
     category_issue_median_share: float = 0.4
     category_fallback_product_severity: float = 0.55
 
+    # Evaluation (SPEC section 8). The judge should be a different model family from the
+    # generator: a model grading its own answers is biased towards them (self-preference).
+    # Unset = the generator's model judges (works, but the run logs a warning).
+    judge_model: str | None = None
+    judge_max_tokens: int = 1500  # reasoning + a JSON score and a one-sentence reason
+    eval_failure_threshold: float = 0.5  # a metric below this marks the question as a failure
+    eval_failures_kept: int = 12  # worst failures stored on the run
+
     # Uploads (SPEC section 4).
     upload_dir: str = "./data/uploads"
     upload_max_bytes: int = 10 * 1024 * 1024

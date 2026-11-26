@@ -106,12 +106,12 @@ def _post_json(url: str, headers: dict[str, str], payload: dict[str, Any]) -> di
 # --- Providers ------------------------------------------------------------------------------
 
 
-def _groq(system: str, user: str, temperature: float, max_tokens: int, json_mode: bool) -> str:
+def _groq(system: str, user: str, temperature: float, max_tokens: int, json_mode: bool, model: str | None) -> str:
     if settings.groq_api_key is None or not settings.groq_model:
         raise LLMError("Groq is not configured")
     # Only parameters every Groq chat model accepts (SPEC section 9 #6).
     payload: dict[str, Any] = {
-        "model": settings.groq_model,
+        "model": model or settings.groq_model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "temperature": temperature,
         "max_completion_tokens": max_tokens,
@@ -133,7 +133,7 @@ def _groq(system: str, user: str, temperature: float, max_tokens: int, json_mode
     return content
 
 
-def _gemini(system: str, user: str, temperature: float, max_tokens: int, json_mode: bool) -> str:
+def _gemini(system: str, user: str, temperature: float, max_tokens: int, json_mode: bool, model: str | None) -> str:
     if settings.gemini_api_key is None or not settings.gemini_model:
         raise LLMError("Gemini is not configured")
     generation: dict[str, Any] = {"temperature": temperature, "maxOutputTokens": max_tokens}
@@ -146,7 +146,7 @@ def _gemini(system: str, user: str, temperature: float, max_tokens: int, json_mo
     }
     # Key in a header, not in the URL: URLs end up in proxy and access logs.
     headers = {"x-goog-api-key": settings.gemini_api_key.get_secret_value()}
-    body = _post_json(GEMINI_URL.format(model=settings.gemini_model), headers, payload)
+    body = _post_json(GEMINI_URL.format(model=model or settings.gemini_model), headers, payload)
     try:
         candidate = body["candidates"][0]
         parts = candidate["content"]["parts"]
@@ -167,13 +167,23 @@ _PROVIDERS = {"groq": _groq, "gemini": _gemini}
 
 
 def complete(
-    user: str, system: str, temperature: float = 0.2, max_tokens: int = 600, *, json_mode: bool = False
+    user: str,
+    system: str,
+    temperature: float = 0.2,
+    max_tokens: int = 600,
+    *,
+    json_mode: bool = False,
+    model: str | None = None,
 ) -> str:
-    """One chat completion as plain text. Raises LLMError on any failure."""
+    """One chat completion as plain text. Raises LLMError on any failure.
+
+    `model` overrides the provider's configured model for this call (the evaluation judge uses a
+    different model family from the generator).
+    """
     provider = _PROVIDERS.get(settings.llm_provider)
     if provider is None:
         raise LLMError("no LLM provider configured")
-    return provider(system, user, temperature, max_tokens, json_mode).strip()
+    return provider(system, user, temperature, max_tokens, json_mode, model).strip()
 
 
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
@@ -197,7 +207,7 @@ def parse_json_object(raw: str) -> dict[str, Any]:
 
 
 def complete_json(
-    user: str, system: str, temperature: float = 0.2, max_tokens: int = 900
+    user: str, system: str, temperature: float = 0.2, max_tokens: int = 900, *, model: str | None = None
 ) -> dict[str, Any]:
     """A completion parsed as a JSON object. Raises LLMError if it can't be parsed."""
-    return parse_json_object(complete(user, system, temperature, max_tokens, json_mode=True))
+    return parse_json_object(complete(user, system, temperature, max_tokens, json_mode=True, model=model))

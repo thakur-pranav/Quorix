@@ -87,9 +87,12 @@ def _passages_text(intro: str, hits: list[Hit]) -> str:
 # --- Retrieval and the chat flow ------------------------------------------------------------
 
 
-def retrieve_only(question: str, org: str) -> list[Hit]:
-    """Embed and search, org-scoped, without logging anything. Used by chat and by evaluation."""
-    return vector_store.search(embeddings.embed_one(question), settings.retrieval_top_k, org)
+def retrieve_only(question: str, org: str, top_k: int | None = None) -> list[Hit]:
+    """Embed and search, org-scoped, without logging anything. Used by chat and by evaluation.
+
+    `top_k` overrides the configured count for one call (the evaluation's top_k experiment).
+    """
+    return vector_store.search(embeddings.embed_one(question), top_k or settings.retrieval_top_k, org)
 
 
 def _conversation(db: Session, org: str, session_id: str, *, synthetic: bool, started_at: datetime) -> Conversation:
