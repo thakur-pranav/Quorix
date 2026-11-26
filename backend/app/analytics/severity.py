@@ -37,10 +37,23 @@ def _pattern(term: str) -> re.Pattern[str]:
 _HARD = [(term, _pattern(term)) for term in HARD_TERMS]
 _SOFT = [(term, _pattern(term)) for term in SOFT_PHRASES]
 
-SYSTEM_PROMPT = """You rate customer support topics. Severity = how badly this topic blocks \
-customers from using the product or costs them money. 0.0 = idle curiosity, 0.5 = confusing \
-but they can continue, 1.0 = they cannot work or are losing money. Reply with JSON only: \
-{"severity": <number 0..1>, "reason": "<one sentence>"}"""
+# Anchored rubric (Day 5): with a bare 0..1 scale the LLM rated 13 of 15 topics 0.8-1.0, so
+# severity stopped separating anything and every recommendation became "product". Described
+# levels with examples, and judging the TYPICAL question, spread the scores out.
+SYSTEM_PROMPT = """You rate how severe a customer support topic is, from a sample of its questions.
+
+Judge the TYPICAL question in the sample, not the most dramatic one. Use this scale:
+1 = curiosity: "what is", "how does X work", comparing options. Nothing is wrong.
+2 = how-to: they want to do something and need the steps. Not blocked, just asking.
+3 = confused: something surprised them (an unexpected number, a setting they can't find), \
+but they can keep working.
+4 = blocked: a task fails or is impossible (a payment declined, an action errors, an \
+upgrade won't apply), with a workaround or no money lost yet.
+5 = critical: they can't use the product at all, or they are losing money right now \
+(locked out, charged wrongly, service cut off).
+
+Most topics are 2 or 3. Use 5 only when most questions describe being locked out or \
+losing money. Reply with JSON only: {"level": <1-5>, "reason": "<one sentence>"}"""
 
 
 @dataclass(frozen=True)
@@ -69,14 +82,15 @@ def llm_severity(name: str, samples: list[str]) -> Severity | None:
     questions = "\n".join(f"- {q}" for q in samples[: settings.severity_samples])
     try:
         data = llm.complete_json(f"Topic: {name}\nCustomer questions:\n{questions}", SYSTEM_PROMPT, temperature=0.0, max_tokens=settings.severity_max_tokens)
-        score = float(data["severity"])
+        level = data["level"]
         reason = str(data.get("reason", "")).strip()
-    except (llm.LLMError, KeyError, TypeError, ValueError) as exc:
+    except (llm.LLMError, KeyError, TypeError) as exc:
         logger.info("LLM severity unavailable for %r: %s", name, exc)
         return None
-    if not 0.0 <= score <= 1.0 or not reason:
-        return None  # LLM output is untrusted: out-of-range or empty means "no answer"
-    return Severity(round(score, 3), reason[:240], "llm")
+    # LLM output is untrusted: only a whole level 1-5 counts (bool is an int in Python: reject it).
+    if isinstance(level, bool) or not isinstance(level, int) or not 1 <= level <= 5 or not reason:
+        return None
+    return Severity(settings.severity_level_scores[level - 1], reason[:240], "llm")
 
 
 def score_severity(name: str, samples: list[str]) -> Severity:

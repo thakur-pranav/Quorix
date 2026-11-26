@@ -130,6 +130,9 @@ class Settings(BaseSettings):
     severity_soft_step: float = 0.05
     severity_min: float = 0.05
     severity_samples: int = 6
+    # LLM rubric level 1-5 -> score. Evenly spaced; 4 (blocked) lands above the category rules'
+    # 0.6/0.65 "high severity" cut-offs, 3 (confused) below them.
+    severity_level_scores: tuple[float, float, float, float, float] = (0.1, 0.3, 0.5, 0.75, 0.95)
     recommendation_count: int = 6
     recommendation_supporting_queries: int = 5
     category_product_severity: float = 0.65

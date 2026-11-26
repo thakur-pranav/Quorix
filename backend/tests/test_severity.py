@@ -27,15 +27,32 @@ def test_rule_is_clamped() -> None:
     assert rule_severity(" ".join(severity.SOFT_PHRASES) * 3).score == 0.05
 
 
-def test_llm_score_wins_when_valid(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(llm, "complete_json", lambda *a, **k: {"severity": 0.9, "reason": "Customers are locked out of billing."})
+@pytest.mark.parametrize(("level", "score"), [(1, 0.1), (2, 0.3), (3, 0.5), (4, 0.75), (5, 0.95)])
+def test_llm_level_maps_to_a_configured_score(monkeypatch: pytest.MonkeyPatch, level: int, score: float) -> None:
+    monkeypatch.setattr(llm, "complete_json", lambda *a, **k: {"level": level, "reason": "Customers are blocked."})
     result = score_severity("Locked out", ["Why is my account locked?"])
-    assert (result.score, result.source) == (0.9, "llm")
+    assert (result.score, result.source) == (score, "llm")
+
+
+def test_prompt_anchors_the_scale_against_inflation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A bare 0..1 scale made the LLM rate almost every topic 0.8-1.0 (Day 5)."""
+    seen: list[str] = []
+    monkeypatch.setattr(llm, "complete_json", lambda user, system, **k: seen.append(system) or {"level": 2, "reason": "x"})
+    score_severity("Invoices", ["How do I download an invoice?"])
+    assert "TYPICAL question" in seen[0] and "Most topics are 2 or 3" in seen[0]
 
 
 @pytest.mark.parametrize(
     "reply",
-    [{"severity": 1.7, "reason": "x"}, {"severity": "high", "reason": "x"}, {"severity": 0.5, "reason": ""}, {"reason": "no score"}],
+    [
+        {"level": 6, "reason": "x"},  # out of range
+        {"level": 0, "reason": "x"},
+        {"level": 3.5, "reason": "x"},  # not a whole level
+        {"level": "4", "reason": "x"},  # a string, not a number
+        {"level": True, "reason": "x"},  # bool is an int subclass in Python
+        {"level": 3, "reason": ""},  # no reason: "why is this ranked high?" needs one
+        {"severity": 0.9, "reason": "x"},  # the old format
+    ],
 )
 def test_unusable_llm_output_falls_back_to_the_rule(monkeypatch: pytest.MonkeyPatch, reply: dict[str, object]) -> None:
     monkeypatch.setattr(llm, "complete_json", lambda *a, **k: reply)
