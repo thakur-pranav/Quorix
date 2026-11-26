@@ -123,6 +123,77 @@ def test_malformed_success_bodies_become_llm_error(groq, sleeps, response: httpx
         llm.complete("q", "sys")
 
 
+def test_groq_reply_cut_off_by_the_token_budget_is_an_error(groq, sleeps) -> None:
+    """HTTP 200 with finish_reason=length: the text is half an answer, so callers must fall back."""
+    cut = {"choices": [{"message": {"content": "In November the team handled 256 questions, with"}, "finish_reason": "length"}]}
+    seen = groq(lambda _r: httpx.Response(200, json=cut))
+    with pytest.raises(LLMError, match="cut off"):
+        llm.complete("q", "sys")
+    assert len(seen) == 1 and sleeps == []  # not retried: the same budget would be cut again
+
+
+def test_cut_off_topic_name_falls_back_to_keywords(groq, sleeps) -> None:
+    """End to end: a truncated reply never becomes a stored topic name."""
+    from app.analytics.clustering import name_topic
+
+    cut = {"choices": [{"message": {"content": "Card payment"}, "finish_reason": "length"}]}
+    groq(lambda _r: httpx.Response(200, json=cut))
+    assert name_topic(["card", "declined", "bank"], ["my card was declined"]) == "Card declined bank"
+
+
+def test_gemini_reply_cut_off_by_the_token_budget_is_an_error(monkeypatch: pytest.MonkeyPatch, sleeps) -> None:
+    monkeypatch.setattr(settings, "llm_provider", "gemini")
+    monkeypatch.setattr(settings, "gemini_api_key", SecretStr("AIza_test"))
+    monkeypatch.setattr(settings, "gemini_model", "gemini-test")
+    cut = {"candidates": [{"content": {"parts": [{"text": "In November"}]}, "finishReason": "MAX_TOKENS"}]}
+    monkeypatch.setattr(
+        llm, "_http_client", lambda: httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=cut)))
+    )
+    with pytest.raises(LLMError, match="cut off"):
+        llm.complete("q", "sys")
+
+
+# --- Client-side pacing ---------------------------------------------------------------------
+
+
+def test_requests_are_spaced_by_the_minimum_interval(groq, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fake clock: sleeping advances it, so the test is instant and deterministic."""
+    now = [100.0]
+    waits: list[float] = []
+
+    def fake_sleep(seconds: float) -> None:
+        waits.append(round(seconds, 3))
+        now[0] += seconds
+
+    monkeypatch.setattr(llm, "_clock", lambda: now[0])
+    monkeypatch.setattr(llm, "_sleep", fake_sleep)
+    monkeypatch.setattr(llm, "_last_request_at", None)
+    monkeypatch.setattr(settings, "llm_min_interval_seconds", 2.0)
+    groq(lambda _r: groq_ok())
+
+    llm.complete("q", "sys")  # first request: nothing to wait for
+    now[0] += 0.5  # the caller does 0.5 s of other work
+    llm.complete("q", "sys")  # waits the remaining 1.5 s
+    now[0] += 5.0  # a long pause
+    llm.complete("q", "sys")  # already spaced out: no wait
+    assert waits == [1.5]
+
+
+def test_retries_are_paced_too(groq, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = [0.0]
+    waits: list[float] = []
+    monkeypatch.setattr(llm, "_clock", lambda: now[0])
+    monkeypatch.setattr(llm, "_sleep", lambda s: (waits.append(s), now.__setitem__(0, now[0] + s)))
+    monkeypatch.setattr(llm, "_last_request_at", None)
+    monkeypatch.setattr(settings, "llm_min_interval_seconds", 2.0)
+    monkeypatch.setattr(settings, "llm_backoff_base_seconds", 0.5)
+    responses = iter([httpx.Response(429), groq_ok()])
+    groq(lambda _r: next(responses))
+
+    llm.complete("q", "sys")
+    assert waits == [0.5, 1.5]  # backoff 0.5 s, then pacing tops it up to the 2 s gap
+
+
 # --- Provider payloads ----------------------------------------------------------------------
 
 

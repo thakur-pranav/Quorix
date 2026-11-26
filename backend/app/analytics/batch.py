@@ -74,7 +74,7 @@ def _summary(period: str, questions: int, unanswered: float, ranked: list[TopicC
     )
     user = f"Period: {period}\nQuestions: {questions}\nShare with weak doc matches: {unanswered:.0%}\nTop topics:\n{lines}"
     try:
-        text = llm.complete(user, SUMMARY_PROMPT, temperature=0.3, max_tokens=500).strip()
+        text = llm.complete(user, SUMMARY_PROMPT, temperature=0.3, max_tokens=settings.summary_max_tokens).strip()
     except llm.LLMError:
         return fallback
     return text[:1500] if text else fallback

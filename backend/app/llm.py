@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 from collections.abc import Callable
 from typing import Any
@@ -24,8 +25,12 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
-# Replaced in tests: a client on httpx.MockTransport, and a sleep that only records.
+# Replaced in tests: a client on httpx.MockTransport, a sleep that only records, a fake clock.
 _sleep: Callable[[float], None] = time.sleep
+_clock: Callable[[], float] = time.monotonic
+
+_pace_lock = threading.Lock()
+_last_request_at: float | None = None
 
 
 def _http_client() -> httpx.Client:
@@ -50,11 +55,28 @@ def _retry_delay(attempt: int, response: httpx.Response | None) -> float:
     return float(settings.llm_backoff_base_seconds * 2**attempt)
 
 
+def _pace() -> None:
+    """Wait until at least llm_min_interval_seconds have passed since the previous request.
+
+    Prevention beats cure: staying under the provider's rate limit is faster than hitting it
+    and backing off. The lock makes threads (FastAPI runs sync endpoints in a thread pool)
+    take turns, so two requests can't both see "enough time has passed" at once.
+    """
+    global _last_request_at
+    with _pace_lock:
+        if _last_request_at is not None:
+            wait = _last_request_at + settings.llm_min_interval_seconds - _clock()
+            if wait > 0:
+                _sleep(wait)
+        _last_request_at = _clock()
+
+
 def _post_json(url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
     """POST and return the JSON body. Retries 429, 5xx and network errors; raises LLMError."""
     with _http_client() as client:
         for attempt in range(settings.llm_max_retries + 1):
             response: httpx.Response | None = None
+            _pace()  # every attempt counts against the provider's limit, retries included
             try:
                 response = client.post(url, headers=headers, json=payload)
             except httpx.TransportError as exc:
@@ -99,9 +121,13 @@ def _groq(system: str, user: str, temperature: float, max_tokens: int, json_mode
     headers = {"Authorization": f"Bearer {settings.groq_api_key.get_secret_value()}"}
     body = _post_json(GROQ_URL, headers, payload)
     try:
-        content = body["choices"][0]["message"]["content"]
+        choice = body["choices"][0]
+        content = choice["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
         raise LLMError("Groq response had no message content") from exc
+    if choice.get("finish_reason") == "length":
+        # HTTP 200 but the token budget ran out mid-answer: a half sentence or broken JSON.
+        raise LLMError("Groq reply was cut off at max_completion_tokens")
     if not isinstance(content, str) or not content.strip():
         raise LLMError("Groq returned empty content")
     return content
@@ -122,10 +148,13 @@ def _gemini(system: str, user: str, temperature: float, max_tokens: int, json_mo
     headers = {"x-goog-api-key": settings.gemini_api_key.get_secret_value()}
     body = _post_json(GEMINI_URL.format(model=settings.gemini_model), headers, payload)
     try:
-        parts = body["candidates"][0]["content"]["parts"]
+        candidate = body["candidates"][0]
+        parts = candidate["content"]["parts"]
         content = "".join(str(part.get("text", "")) for part in parts)
     except (KeyError, IndexError, TypeError, AttributeError) as exc:
         raise LLMError("Gemini response had no content (possibly blocked)") from exc
+    if candidate.get("finishReason") == "MAX_TOKENS":
+        raise LLMError("Gemini reply was cut off at maxOutputTokens")
     if not content.strip():
         raise LLMError("Gemini returned empty content")
     return content

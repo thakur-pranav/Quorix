@@ -68,7 +68,7 @@ def llm_severity(name: str, samples: list[str]) -> Severity | None:
     """The LLM's score and reason, or None if the call fails or the output is unusable."""
     questions = "\n".join(f"- {q}" for q in samples[: settings.severity_samples])
     try:
-        data = llm.complete_json(f"Topic: {name}\nCustomer questions:\n{questions}", SYSTEM_PROMPT, temperature=0.0, max_tokens=300)
+        data = llm.complete_json(f"Topic: {name}\nCustomer questions:\n{questions}", SYSTEM_PROMPT, temperature=0.0, max_tokens=settings.severity_max_tokens)
         score = float(data["severity"])
         reason = str(data.get("reason", "")).strip()
     except (llm.LLMError, KeyError, TypeError, ValueError) as exc:

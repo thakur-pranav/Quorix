@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     llm_max_retries: int = 3  # retries after the first attempt, for 429 / 5xx / network errors
     llm_backoff_base_seconds: float = 1.0  # waits 1 s, 2 s, 4 s
     llm_max_retry_after_seconds: float = 20.0  # cap on a server-sent Retry-After
+    # Client-side rate limit: minimum gap between requests from this process. Groq's free tier
+    # allows ~30 requests/minute, so 2 s stays under it instead of hitting 429s and retrying.
+    # 0 disables it (tests). Per process: several workers would need a shared limiter (Redis).
+    llm_min_interval_seconds: float = 2.0
 
     # RAG (SPEC section 6).
     retrieval_top_k: int = 5
@@ -38,7 +42,14 @@ class Settings(BaseSettings):
     low_confidence_threshold: float = 0.45
     low_confidence_passages: int = 2
     chat_temperature: float = 0.2
-    chat_max_tokens: int = 600
+    # Output budgets. Reasoning models (gpt-oss) spend ~100-400 of these on hidden thinking
+    # before the visible answer, so they're sized well above the answer itself. A reply that
+    # still hits the cap is treated as a failure (llm.py), never stored half-written.
+    chat_max_tokens: int = 1500
+    topic_name_max_tokens: int = 600
+    severity_max_tokens: int = 900
+    recommend_max_tokens: int = 2000
+    summary_max_tokens: int = 1500
     citation_excerpt_chars: int = 320
     fallback_passage_chars: int = 400
 

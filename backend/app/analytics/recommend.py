@@ -103,7 +103,7 @@ def write_recommendation(topic: TopicFacts, median_count: float) -> Draft:
         f"Customer questions with the weakest answers:\n{questions}"
     )
     try:
-        data = llm.complete_json(user, SYSTEM_PROMPT, temperature=0.3, max_tokens=700)
+        data = llm.complete_json(user, SYSTEM_PROMPT, temperature=0.3, max_tokens=settings.recommend_max_tokens)
         for key in ("headline", "body", "expected_effect"):
             value = data.get(key)
             if isinstance(value, str) and value.strip():

@@ -15,6 +15,7 @@ os.environ["CHROMA_PATH"] = ":memory:"
 # Env vars beat backend/.env, so a developer's real LLM key can never be used by the tests.
 os.environ["LLM_PROVIDER"] = "none"
 os.environ["WARM_MODELS_ON_STARTUP"] = "false"
+os.environ["LLM_MIN_INTERVAL_SECONDS"] = "0"  # no pacing in tests; test_llm turns it on explicitly
 
 
 # Imports below the env setup on purpose: app modules read settings at import time.

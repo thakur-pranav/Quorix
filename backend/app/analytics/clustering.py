@@ -78,7 +78,7 @@ def name_topic(keywords: list[str], samples: list[str]) -> str:
     fallback = " ".join(keywords[:3]).capitalize() or "Unnamed topic"
     questions = "\n".join(f"- {s}" for s in samples[: settings.topic_name_samples])
     try:
-        raw = llm.complete(f"Keywords: {', '.join(keywords)}\nQuestions:\n{questions}", NAME_PROMPT, temperature=0.2, max_tokens=200)
+        raw = llm.complete(f"Keywords: {', '.join(keywords)}\nQuestions:\n{questions}", NAME_PROMPT, temperature=0.2, max_tokens=settings.topic_name_max_tokens)
     except llm.LLMError as exc:
         logger.info("topic naming unavailable: %s", exc)
         return fallback
