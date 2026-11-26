@@ -1,0 +1,533 @@
+{
+  "generated_at": "2026-11-26T09:39:33+00:00",
+  "model": "openai/gpt-oss-120b",
+  "org": "org_demo",
+  "seed": 7,
+  "questions": [
+    {
+      "question": "How do I know if a GitHub account is connected to a Visual Studio subscription?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/manage-plan-and-licenses/view-enterprise-usage",
+      "source_heading": "Viewing usage for your GitHub Enterprise plan › Finding information on GitHub Enterprise Cloud › Synchronization of Visual Studio subscriptions with GitHub Enterprise subscriptions",
+      "id": "q001"
+    },
+    {
+      "question": "What cache storage cost will I see for March if I used 3 GB for 10 days and 12 GB for 21 days?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "source_heading": "GitHub Actions billing › Paying for additional GitHub Actions use › Example cache storage cost calculation",
+      "id": "q002"
+    },
+    {
+      "question": "Do I get charged for storage after stopping a cloud sandbox?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/cloud-and-local-sandboxes",
+      "source_heading": "Billing for cloud and local sandboxes for GitHub Copilot › How sandbox usage is measured › Storage",
+      "id": "q003"
+    },
+    {
+      "question": "Can I receive email alerts and automatically stop usage when my budget limit is reached?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/set-up-budgets",
+      "source_heading": "Setting up budgets to control spending on metered products › Managing budgets for your personal account",
+      "id": "q004"
+    },
+    {
+      "question": "What must be true before I can remove my payment method?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/troubleshooting/locked-account",
+      "source_heading": "Unlocking a locked account › Unlocking an account's features due to a failed authorization hold",
+      "id": "q005"
+    },
+    {
+      "question": "If I remove a user mid‑month, will I still be charged for them?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/github-license-users",
+      "source_heading": "People who consume a license in an organization › Organizations on GitHub Enterprise Cloud",
+      "id": "q006"
+    },
+    {
+      "question": "How can I set up a regular API call to get usage data for monthly cost reports?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/automate-usage-reporting",
+      "source_heading": "Automating usage reporting with the REST API › Step 4: Automate recurring usage reports",
+      "id": "q007"
+    },
+    {
+      "question": "How do I pay for extra GitHub Packages usage beyond my quota?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-packages",
+      "source_heading": "GitHub Packages billing › Paying for additional GitHub Packages use",
+      "id": "q008"
+    },
+    {
+      "question": "How do I set a budget to stop usage when I hit the limit for a specific SKU?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/control-costs-at-scale",
+      "source_heading": "Controlling and tracking costs at scale › 3. Set budgets to control additional spending › Create budgets for the cost center",
+      "id": "q009"
+    },
+    {
+      "question": "How can I learn about GitHub's billing and check my organization's current usage and costs?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/get-started/billing-manager-onboard",
+      "source_heading": "Billing manager onboarding › 1. Understand how GitHub charges for use",
+      "id": "q010"
+    },
+    {
+      "question": "Will I be charged right away when I start a free trial on a paid app?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/third-party-payments/github-marketplace-apps",
+      "source_heading": "GitHub Marketplace app subscriptions › Free trials",
+      "id": "q011"
+    },
+    {
+      "question": "Is it possible to change my Copilot payment method from PayPal to an Azure subscription?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/azure-subscriptions",
+      "source_heading": "Azure subscription payments › Payment using an Azure subscription",
+      "id": "q012"
+    },
+    {
+      "question": "Who in my GitHub Enterprise Cloud doesn't use up a license?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/github-license-users",
+      "source_heading": "People who consume a license in an organization › Organizations on GitHub Enterprise Cloud › People who don't consume licenses",
+      "id": "q013"
+    },
+    {
+      "question": "How do I figure out the amount left for usage-based GitHub services after accounting for licenses?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/control-costs-at-scale",
+      "source_heading": "Controlling and tracking costs at scale › 3. Set budgets to control additional spending › Calculate your cost center budget",
+      "id": "q014"
+    },
+    {
+      "question": "Can I use cost centers to track my enterprise GitHub spend by team?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/get-started/billing-manager-onboard",
+      "source_heading": "Billing manager onboarding › 4. Attribute costs (enterprise only)",
+      "id": "q015"
+    },
+    {
+      "question": "Do I get charged hourly for Actions storage or just at month end?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "source_heading": "GitHub Actions billing › How storage billing works",
+      "id": "q016"
+    },
+    {
+      "question": "Can I delete my payment method while I still have billable usage this month?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/set-up-payment/manage-payment-info",
+      "source_heading": "Managing your payment and billing information › Managing payment information",
+      "id": "q017"
+    },
+    {
+      "question": "Do the Copilot licenses my company buys give us monthly AI credits that we can share?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-copilot-billing",
+      "source_heading": "GitHub Copilot billing › Organizations and enterprises",
+      "id": "q018"
+    },
+    {
+      "question": "Where can I check my organization's current GitHub plan and upgrade options?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/products/buy-advanced-security",
+      "source_heading": "Buying Advanced Security for your organization or enterprise › Checking your current plan",
+      "id": "q019"
+    },
+    {
+      "question": "If I upgrade my Copilot plan, when does it start and how is the cost determined?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-copilot-licenses",
+      "source_heading": "GitHub Copilot licenses › How usage of Copilot licenses is measured › Personal accounts",
+      "id": "q020"
+    },
+    {
+      "question": "How do I view my enterprise's subscription and license usage and download the license file?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/manage-plan-and-licenses/view-enterprise-usage",
+      "source_heading": "Viewing usage for your GitHub Enterprise plan › Viewing subscription and usage for your enterprise",
+      "id": "q021"
+    },
+    {
+      "question": "How does pushing the same large file affect my storage and bandwidth usage?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/git-lfs",
+      "source_heading": "Git Large File Storage billing › How use of Git LFS is measured › Examples of how usage is measured",
+      "id": "q022"
+    },
+    {
+      "question": "Is it possible to modify a budget’s scope after I’ve set it up?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/set-up-budgets",
+      "source_heading": "Setting up budgets to control spending on metered products › Managing budgets for your organization or enterprise › Editing or deleting a budget",
+      "id": "q023"
+    },
+    {
+      "question": "Who gets charged for a cloud sandbox session when I'm not in a repo?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/cloud-and-local-sandboxes",
+      "source_heading": "Billing for cloud and local sandboxes for GitHub Copilot › How costs are assigned to a billable account",
+      "id": "q024"
+    },
+    {
+      "question": "When I link my Azure subscription, how does GitHub usage appear on the Azure invoice?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/azure-subscription",
+      "source_heading": "Azure subscription reference › Azure invoices",
+      "id": "q025"
+    },
+    {
+      "question": "What can I do to turn off Advanced Security for all repos and prevent re‑enabling?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/products/disable-ghas-for-enterprise",
+      "source_heading": "Disabling GitHub Advanced Security for your enterprise › In this article",
+      "id": "q026"
+    },
+    {
+      "question": "How does the 90‑day activity window affect my Advanced Security license billing?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-advanced-security",
+      "source_heading": "GitHub Advanced Security license billing › Paying for GitHub Advanced Security licenses › Example showing how the active committer count changes over time",
+      "id": "q027"
+    },
+    {
+      "question": "How do I enable email notifications when my usage gets close to the plan limit?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/set-up-budgets",
+      "source_heading": "Setting up budgets to control spending on metered products › Managing budgets for your personal account › Managing included usage alerts for your personal account",
+      "id": "q028"
+    },
+    {
+      "question": "I need a usage report for my whole organization; which reporting level should I pick?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/automate-usage-reporting",
+      "source_heading": "Automating usage reporting with the REST API › Step 1: Decide what level to report on",
+      "id": "q029"
+    },
+    {
+      "question": "How do I invite my client to become an owner of my GitHub organization?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/manage-for-client/create-client-org",
+      "source_heading": "Creating and paying for an organization for a client › Step 4: Invite your client to join the organization",
+      "id": "q030"
+    },
+    {
+      "question": "How is storage and data transfer for private packages billed and when does the quota reset?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-packages",
+      "source_heading": "GitHub Packages billing › How use of GitHub Packages is measured",
+      "id": "q031"
+    },
+    {
+      "question": "What steps do I follow to change the plan of a Marketplace app for my organization?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/pay-third-parties/upgrade-marketplace-app",
+      "source_heading": "Upgrading the billing plan for a GitHub Marketplace app › Upgrading an app in your enterprise",
+      "id": "q032"
+    },
+    {
+      "question": "How does GitHub Actions calculate storage costs over time?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "source_heading": "GitHub Actions billing › How storage billing works › Storage measurement units",
+      "id": "q033"
+    },
+    {
+      "question": "Can you explain what the net_amount field means in my usage report?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/billing-reports",
+      "source_heading": "Billing reports reference › Usage report fields",
+      "id": "q034"
+    },
+    {
+      "question": "How can I retrieve my enterprise's usage summary with the GitHub API?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/automate-usage-reporting",
+      "source_heading": "Automating usage reporting with the REST API › Step 2: Retrieve usage data for paid products › Retrieve a usage summary",
+      "id": "q035"
+    },
+    {
+      "question": "Do my sponsorship payments follow the same billing cycle and payment method as my other GitHub subscriptions?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/third-party-payments/github-sponsors",
+      "source_heading": "GitHub Sponsors billing › Unified payment method and billing date",
+      "id": "q036"
+    },
+    {
+      "question": "How can I download a license CSV report for my GitHub Enterprise account?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/products/download-license-use",
+      "source_heading": "Downloading license use for your enterprise or organization › On GitHub Enterprise Cloud",
+      "id": "q037"
+    },
+    {
+      "question": "What is the monthly GitHub Actions storage limit for the Free plan?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/product-usage-included",
+      "source_heading": "Product usage included with each plan",
+      "id": "q038"
+    },
+    {
+      "question": "How do you calculate my monthly artifact storage usage and billing?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "source_heading": "GitHub Actions billing › Paying for additional GitHub Actions use › Example artifact storage cost calculation",
+      "id": "q039"
+    },
+    {
+      "question": "What do I need to have ready to use the billing usage API?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/automate-usage-reporting",
+      "source_heading": "Automating usage reporting with the REST API › Prerequisites",
+      "id": "q040"
+    },
+    {
+      "question": "Who gets billed for a codespace I create in my organization's repo?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-codespaces",
+      "source_heading": "GitHub Codespaces billing › How costs are assigned to a billable account",
+      "id": "q041"
+    },
+    {
+      "question": "How can I set an end date for a sponsorship I already have on GitHub?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/pay-third-parties/end-sponsorship",
+      "source_heading": "Setting an end date to a sponsorship › Setting an end date for an existing sponsorship",
+      "id": "q042"
+    },
+    {
+      "question": "How do I set up email notifications for when my budget hits 75%, 90% and 100%?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/set-up-budgets",
+      "source_heading": "Setting up budgets to control spending on metered products › Managing budgets for your organization or enterprise › Creating a budget",
+      "id": "q043"
+    },
+    {
+      "question": "How is the license cost calculated for my GitHub Enterprise account?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/enterprise-billing/billing-for-enterprises",
+      "source_heading": "Billing for GitHub Enterprise › License costs",
+      "id": "q044"
+    },
+    {
+      "question": "How can I downgrade my GitHub sponsorship to a lower tier?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/pay-third-parties/downgrade-sponsorship",
+      "source_heading": "Downgrading a sponsorship › Downgrading a sponsorship",
+      "id": "q045"
+    },
+    {
+      "question": "Can I upgrade, downgrade, or cancel my GitHub Marketplace app subscription whenever I want?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/third-party-payments/github-marketplace-apps",
+      "source_heading": "GitHub Marketplace app subscriptions › In this article",
+      "id": "q046"
+    },
+    {
+      "question": "If I change a public repo to private, do I need to buy an Advanced Security license?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-advanced-security",
+      "source_heading": "GitHub Advanced Security license billing › How usage of GitHub Advanced Security licenses is measured",
+      "id": "q047"
+    },
+    {
+      "question": "If I downgrade my paid GitHub Marketplace app, when will the change take effect?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/third-party-payments/github-marketplace-apps",
+      "source_heading": "GitHub Marketplace app subscriptions › Plan changes and cancellation",
+      "id": "q048"
+    },
+    {
+      "question": "Where do I find the upgrade settings for my Marketplace app on a personal account created after February 2025?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/pay-third-parties/upgrade-marketplace-app",
+      "source_heading": "Upgrading the billing plan for a GitHub Marketplace app › In this article",
+      "id": "q049"
+    },
+    {
+      "question": "When do my free compute hours start over?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-codespaces",
+      "source_heading": "GitHub Codespaces billing › How use of GitHub Codespaces is measured › Compute time",
+      "id": "q050"
+    },
+    {
+      "question": "If I take a user out of a cost center, where does their cost go?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/cost-center-allocation",
+      "source_heading": "Cost center allocation for different products › Effects of changes to cost centers › Adding or removing a member",
+      "id": "q051"
+    },
+    {
+      "question": "How can I change my expired credit card info on my account?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/troubleshooting/declined-card",
+      "source_heading": "Troubleshooting a declined credit card charge › 1. Check your card's expiration date and add your new card's details",
+      "id": "q052"
+    },
+    {
+      "question": "How am I charged for extra GitHub Actions usage after the free minutes are used?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "source_heading": "GitHub Actions billing › Paying for additional GitHub Actions use",
+      "id": "q053"
+    },
+    {
+      "question": "If I change to Azure billing halfway through the month, how are my charges handled?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/reference/azure-billing",
+      "source_heading": "Billing through Azure subscriptions › Billing cycles and invoicing",
+      "id": "q054"
+    },
+    {
+      "question": "Which payment method is used for my Codespaces charges?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-codespaces",
+      "source_heading": "GitHub Codespaces billing › Paying for use",
+      "id": "q055"
+    },
+    {
+      "question": "Where do I go to check if my cost center budget conflicts with other budgets?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/control-costs-at-scale",
+      "source_heading": "Controlling and tracking costs at scale › 3. Set budgets to control additional spending › Review existing budgets for conflicts",
+      "id": "q056"
+    },
+    {
+      "question": "What can I do if my codespace is blocked because I've exceeded my free quota and I have no payment method?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-codespaces",
+      "source_heading": "GitHub Codespaces billing › Free and billed use by personal accounts › Using more than your included quota",
+      "id": "q057"
+    },
+    {
+      "question": "How can I check which cost center a user belongs to via the API?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/control-costs-at-scale",
+      "source_heading": "Controlling and tracking costs at scale › 4. Create a cost center with the REST API › Verify a resource's cost center assignment",
+      "id": "q058"
+    },
+    {
+      "question": "How do I cancel a scheduled sponsorship that I set up for my organization?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/how-tos/pay-third-parties/cancel-sponsorship",
+      "source_heading": "Canceling a sponsorship › Canceling a scheduled sponsorship",
+      "id": "q059"
+    },
+    {
+      "question": "How can I create a cost center via the API and get its ID?",
+      "answerable": true,
+      "source_url": "https://docs.github.com/en/billing/tutorials/control-costs-at-scale",
+      "source_heading": "Controlling and tracking costs at scale › 4. Create a cost center with the REST API › Create a new cost center",
+      "id": "q060"
+    },
+    {
+      "question": "How do I transfer my GitHub repository to a different user account?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q061"
+    },
+    {
+      "question": "Can I get a refund for a mistakenly purchased GitHub Copilot subscription?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q062"
+    },
+    {
+      "question": "What is the process to change my two-factor authentication phone number?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q063"
+    },
+    {
+      "question": "Do you offer discounts for non‑profit organizations on GitHub Enterprise?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q064"
+    },
+    {
+      "question": "How can I migrate my existing CI/CD pipelines from Jenkins to GitHub Actions?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q065"
+    },
+    {
+      "question": "Is there a way to export my GitHub issue comments as a PDF?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q066"
+    },
+    {
+      "question": "What are the data retention policies for archived repositories?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q067"
+    },
+    {
+      "question": "Can I use my corporate VPN to access GitHub without additional setup?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q068"
+    },
+    {
+      "question": "How do I request a new custom domain for my GitHub Pages site?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q069"
+    },
+    {
+      "question": "What is the policy for reinstating a suspended organization after a terms violation?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q070"
+    },
+    {
+      "question": "Are there any limits on the number of collaborators for private repositories?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q071"
+    },
+    {
+      "question": "How do I integrate GitHub with a third‑party project management tool like Asana?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q072"
+    },
+    {
+      "question": "What are the guidelines for creating a public organization logo on GitHub?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q073"
+    },
+    {
+      "question": "Can I schedule automatic repository backups to an external storage provider?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q074"
+    },
+    {
+      "question": "Do you support payment via cryptocurrency for GitHub Marketplace purchases?",
+      "answerable": false,
+      "source_url": null,
+      "source_heading": null,
+      "id": "q075"
+    }
+  ]
+}

@@ -120,6 +120,7 @@ class QuestionResult:
     scores: dict[str, float | None] = field(default_factory=dict)
     reasons: dict[str, str] = field(default_factory=dict)
     skipped_because: str | None = None
+    retrieved: list[tuple[str | None, str]] = field(default_factory=list)  # (url, heading), rank order
 
 
 def evaluate_question(question: str, org: str, top_k: int | None = None) -> QuestionResult:
@@ -130,16 +131,17 @@ def evaluate_question(question: str, org: str, top_k: int | None = None) -> Ques
     """
     hits = engine.retrieve_only(question, org, top_k)
     confidence = engine.compute_confidence([hit.similarity for hit in hits])
+    retrieved = [(hit.url, hit.heading_path) for hit in hits]
     if not hits:
         return QuestionResult(question, confidence, None, skipped_because="nothing retrieved")
     system, user = engine.build_prompt(question, hits)
     try:
         answer = llm.complete(user, system, temperature=settings.chat_temperature, max_tokens=settings.chat_max_tokens)
     except llm.LLMError as exc:
-        return QuestionResult(question, confidence, None, skipped_because=f"generation failed: {exc}")
+        return QuestionResult(question, confidence, None, skipped_because=f"generation failed: {exc}", retrieved=retrieved)
 
     context = _context(hits)
-    result = QuestionResult(question, confidence, answer)
+    result = QuestionResult(question, confidence, answer, retrieved=retrieved)
     for metric in METRICS:
         verdict = judge(PROMPTS[metric].format(question=question, answer=answer, context=context))
         result.scores[metric] = verdict.score
