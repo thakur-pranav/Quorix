@@ -45,6 +45,11 @@ def test_overview(analysed: TestClient) -> None:
     assert (body["queryCount"], body["topicCount"], body["emergingCount"]) == (34, 3, 1)
     assert body["unansweredRate"] == pytest.approx(20 / 34, abs=1e-4)
     assert [p["queryCount"] for p in body["volumeByPeriod"]] == [30, 34]
+    histogram = body["confidenceHistogram"]
+    assert len(histogram) == settings.overview_histogram_bins and histogram[0]["start"] == 0.0
+    assert sum(b["count"] for b in histogram) == 34  # every October question in exactly one bin
+    assert {b["start"] for b in histogram if b["count"]} == {0.3, 0.75, 0.8}  # refund, password, invoice
+    assert body["lowConfidenceThreshold"] == settings.low_confidence_threshold
 
 
 def test_insights_list_and_detail(analysed: TestClient) -> None:
@@ -76,7 +81,8 @@ def test_other_orgs_see_nothing(analysed: TestClient) -> None:
     assert analysed.get(f"/api/insights/{topic_id}", headers=B).status_code == 404
     assert analysed.get("/api/insights", headers=B).json() == []
     assert analysed.get("/api/reports/latest", headers=B).status_code == 404
-    assert analysed.get("/api/overview", headers=B).json()["queryCount"] == 0
+    empty = analysed.get("/api/overview", headers=B).json()
+    assert empty["queryCount"] == 0 and empty["confidenceHistogram"] == []
 
 
 def test_run_validation(client: TestClient) -> None:

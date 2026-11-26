@@ -99,3 +99,33 @@ export interface ReportOut extends ReportSummaryOut {
   summary: string;
   recommendations: RecommendationOut[];
 }
+
+// --- Overview and evaluation (routers/insights.py /overview, routers/evaluation.py) ---
+
+export interface OverviewOut {
+  period: string | null;
+  conversationCount: number;
+  queryCount: number;
+  topicCount: number;
+  unansweredRate: number;
+  meanConfidence: number;
+  emergingCount: number;
+  volumeByPeriod: { period: string; queryCount: number; meanConfidence: number }[];
+  /** The latest month's questions by confidence; every bin present, zeros included. */
+  confidenceHistogram: { start: number; count: number }[];
+  lowConfidenceThreshold: number;
+}
+
+export type EvaluationMetric = "faithfulness" | "answer_relevance" | "context_relevance";
+
+export interface EvaluationOut {
+  id: string;
+  ranAt: string;
+  questionCount: number;
+  failedJudgements: number;
+  /** null when every judgement for the metric failed (never averaged in as 0). */
+  faithfulness: number | null;
+  answerRelevance: number | null;
+  contextRelevance: number | null;
+  failures: { question: string; metric: EvaluationMetric; score: number; reason: string; confidence: number; answer: string }[];
+}

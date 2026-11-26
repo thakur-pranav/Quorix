@@ -176,6 +176,11 @@ class PeriodVolume(CamelModel):
     mean_confidence: float
 
 
+class ConfidenceBin(CamelModel):
+    start: float  # the bin covers [start, start + width)
+    count: int
+
+
 class OverviewOut(CamelModel):
     period: str | None
     conversation_count: int
@@ -185,6 +190,33 @@ class OverviewOut(CamelModel):
     mean_confidence: float
     emerging_count: int
     volume_by_period: list[PeriodVolume]
+    # The latest month's questions by retrieval confidence, plus the live threshold, so the
+    # page draws the "refused below this" line from the backend's real setting.
+    confidence_histogram: list[ConfidenceBin]
+    low_confidence_threshold: float
+
+
+# --- Evaluation (SPEC sections 4 and 8) -----------------------------------------------------
+
+
+class EvaluationFailure(CamelModel):
+    question: str
+    metric: Literal["faithfulness", "answer_relevance", "context_relevance"]
+    score: float
+    reason: str
+    confidence: float
+    answer: str
+
+
+class EvaluationOut(CamelModel):
+    id: str
+    ran_at: datetime
+    question_count: int
+    failed_judgements: int
+    faithfulness: float | None  # None when every judgement for the metric failed
+    answer_relevance: float | None
+    context_relevance: float | None
+    failures: list[EvaluationFailure]
 
 
 class AnalyticsRunRequest(RequestModel):

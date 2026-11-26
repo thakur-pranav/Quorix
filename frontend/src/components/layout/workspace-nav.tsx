@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-// Overview and Evaluation join this list on Days 6 and 7.
+// Analytics first (what a support lead reads), then the tools (Ask, Sources), then quality.
 const tabs = [
+  { href: "/overview", label: "Overview" },
   { href: "/insights", label: "Insights" },
   { href: "/report", label: "Report" },
   { href: "/ask", label: "Ask" },
   { href: "/sources", label: "Sources" },
+  { href: "/evaluation", label: "Evaluation" },
 ];
 
 export function WorkspaceNav() {

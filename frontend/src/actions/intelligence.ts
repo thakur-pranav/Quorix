@@ -84,6 +84,7 @@ export async function runAnalyticsAction(): Promise<ActionResult<{ periods: stri
   await requireUser();
   const result = await run(() => fastapi<{ status: string; periods: string[] }>("/analytics/run", { method: "POST", json: {} }));
   revalidatePath("/insights");
+  revalidatePath("/overview");
   revalidatePath("/report");
   return result.success ? { success: true, data: { periods: result.data.periods } } : result;
 }

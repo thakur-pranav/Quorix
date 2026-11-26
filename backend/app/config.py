@@ -151,6 +151,7 @@ class Settings(BaseSettings):
     judge_max_tokens: int = 1500  # reasoning + a JSON score and a one-sentence reason
     eval_failure_threshold: float = 0.5  # a metric below this marks the question as a failure
     eval_failures_kept: int = 12  # worst failures stored on the run
+    overview_histogram_bins: int = 20  # confidence histogram on the Overview page: 0.05 wide
 
     # Uploads (SPEC section 4).
     upload_dir: str = "./data/uploads"

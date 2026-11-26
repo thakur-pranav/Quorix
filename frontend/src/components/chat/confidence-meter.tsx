@@ -8,7 +8,7 @@ import { cn, formatPercent } from "@/lib/utils";
  * backend refuses (`lowConfidence`). Between it and 0.62 covered and off-topic questions
  * overlap, so those answers are flagged for the reader to check against the sources.
  */
-const STRONG_MATCH = 0.62;
+export const STRONG_MATCH = 0.62;
 
 export function ConfidenceMeter({ confidence, lowConfidence }: { confidence: number; lowConfidence: boolean }) {
   const level = lowConfidence ? "low" : confidence >= STRONG_MATCH ? "high" : "medium";

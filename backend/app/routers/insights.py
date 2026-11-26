@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from sqlalchemy import func, select
@@ -19,6 +20,7 @@ from app.models import Chunk, ClusterMember, Message, Report, Source, TopicClust
 from app.schemas import (
     AnalyticsRunOut,
     AnalyticsRunRequest,
+    ConfidenceBin,
     MemberQuery,
     OverviewOut,
     PeriodVolume,
@@ -56,7 +58,8 @@ def overview(tenant: CurrentTenant, db: DbSession) -> OverviewOut:
     if not volume_by_period:
         return OverviewOut(
             period=None, conversation_count=0, query_count=0, topic_count=0, unanswered_rate=0.0,
-            mean_confidence=0.0, emerging_count=0, volume_by_period=[],
+            mean_confidence=0.0, emerging_count=0, volume_by_period=[], confidence_histogram=[],
+            low_confidence_threshold=settings.low_confidence_threshold,
         )  # fmt: skip
 
     period = volume_by_period[-1].period
@@ -80,7 +83,22 @@ def overview(tenant: CurrentTenant, db: DbSession) -> OverviewOut:
         mean_confidence=latest.mean_confidence,
         emerging_count=sum(n for trend, n in topics if trend == "emerging"),
         volume_by_period=volume_by_period,
+        confidence_histogram=_confidence_histogram(db, in_period),
+        low_confidence_threshold=settings.low_confidence_threshold,
     )
+
+
+def _confidence_histogram(db: Session, in_period: tuple[Any, ...]) -> list[ConfidenceBin]:
+    """Questions per confidence bin, every bin present (zeros too) so the chart has no gaps.
+
+    Done in Python on one column of one org's month (a few hundred floats): simpler than a
+    portable SQL bucketing expression, and the same on SQLite and Postgres.
+    """
+    bins = settings.overview_histogram_bins
+    counts = [0] * bins
+    for confidence in db.scalars(select(Message.confidence).where(*in_period, Message.confidence.is_not(None))):
+        counts[min(int(confidence * bins), bins - 1)] += 1  # 1.0 belongs to the last bin
+    return [ConfidenceBin(start=round(i / bins, 4), count=n) for i, n in enumerate(counts)]
 
 
 @router.get("/insights", response_model=list[TopicOut])
