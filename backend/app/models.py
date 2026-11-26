@@ -21,10 +21,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
+from app.config import settings
 from app.db import Base
 
 
@@ -93,8 +95,15 @@ class Source(Base):
     )
 
 
+# pgvector's `vector(384)` on Postgres; a JSON list on SQLite (tests, local dev), where
+# vector_store ranks in Python. One column either way, written in the same transaction as the row.
+# none_as_null: without it, JSON stores Python None as the JSON value `null`, not SQL NULL, and
+# `embedding IS NULL` would never match a row waiting for the backfill.
+EmbeddingType = JSON(none_as_null=True).with_variant(Vector(settings.embedding_dimension), "postgresql")
+
+
 class Chunk(Base):
-    """One retrievable passage of a source. Its embedding lives in Chroma under the same id."""
+    """One retrievable passage of a source, with its embedding in the same row."""
 
     __tablename__ = "chunks"
     __table_args__ = (Index("ix_chunks_org_source_id", "organization_id", "source_id"),)
@@ -106,6 +115,9 @@ class Chunk(Base):
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
     text: Mapped[str] = mapped_column(Text)
     word_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Nullable only so existing rows can be backfilled (scripts/backfill_embeddings.py);
+    # ingestion always writes it, and search skips rows without one.
+    embedding: Mapped[list[float] | None] = mapped_column(EmbeddingType, nullable=True)
 
     source: Mapped[Source] = relationship(back_populates="chunks")
 

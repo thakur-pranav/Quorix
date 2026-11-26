@@ -123,13 +123,13 @@ class QuestionResult:
     retrieved: list[tuple[str | None, str]] = field(default_factory=list)  # (url, heading), rank order
 
 
-def evaluate_question(question: str, org: str, top_k: int | None = None) -> QuestionResult:
+def evaluate_question(db: Session, question: str, org: str, top_k: int | None = None) -> QuestionResult:
     """Retrieve (no logging), generate with the chat prompt, then judge the three metrics.
 
     Generates even below the low-confidence threshold: this measures the retriever and the
     generator, and lets us check whether low confidence goes with low faithfulness.
     """
-    hits = engine.retrieve_only(question, org, top_k)
+    hits = engine.retrieve_only(db, question, org, top_k)
     confidence = engine.compute_confidence([hit.similarity for hit in hits])
     retrieved = [(hit.url, hit.heading_path) for hit in hits]
     if not hits:
@@ -162,7 +162,7 @@ def run_evaluation(
 
     results = []
     for n, question in enumerate(questions, start=1):
-        results.append(evaluate_question(question, org, top_k))
+        results.append(evaluate_question(db, question, org, top_k))
         logger.info("evaluated %d/%d", n, len(questions))
 
     answered = [r for r in results if r.answer is not None]

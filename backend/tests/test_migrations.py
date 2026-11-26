@@ -7,8 +7,10 @@ fails ("schema drift").
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
@@ -27,8 +29,17 @@ def alembic_config(url: str) -> Config:
     return config
 
 
-def test_migrations_match_the_models_and_roll_back(tmp_path: Path) -> None:
-    url = f"sqlite:///{(tmp_path / 'migrated.db').as_posix()}"
+def database_urls() -> list[str]:
+    """SQLite always; Postgres too when CI provides an empty database for it."""
+    urls = ["sqlite"]
+    if os.environ.get("TEST_MIGRATIONS_DATABASE_URL"):
+        urls.append(os.environ["TEST_MIGRATIONS_DATABASE_URL"])
+    return urls
+
+
+@pytest.mark.parametrize("target", database_urls(), ids=lambda u: u.split(":")[0])
+def test_migrations_match_the_models_and_roll_back(tmp_path: Path, target: str) -> None:
+    url = f"sqlite:///{(tmp_path / 'migrated.db').as_posix()}" if target == "sqlite" else target
     config = alembic_config(url)
     command.upgrade(config, "head")
 
@@ -40,4 +51,6 @@ def test_migrations_match_the_models_and_roll_back(tmp_path: Path) -> None:
 
     command.downgrade(config, "base")
     assert set(inspect(engine).get_table_names()) == {"alembic_version"}
+    with engine.begin() as connection:  # leave the database as empty as it started
+        connection.exec_driver_sql("DROP TABLE alembic_version")
     engine.dispose()

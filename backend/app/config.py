@@ -91,10 +91,12 @@ class Settings(BaseSettings):
     # Embeddings and vector store (SPEC sections 5.5 and 5.6).
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_batch_size: int = 64
-    # Load the embedding model and Chroma at startup instead of on the first request.
+    # The vector column's size: part of the database schema (a migration), so it can't follow
+    # the model automatically. Startup checks the model really produces this many dimensions
+    # and refuses to run if not (changing models = a migration + re-embedding every chunk).
+    embedding_dimension: int = 384
+    # Load the embedding model at startup instead of on the first request.
     warm_models_on_startup: bool = True
-    chroma_path: str = "./data/chroma"  # ":memory:" = in-process, nothing on disk (tests)
-    chroma_collection: str = "chunks"
 
     # Analytics batch (SPEC section 7).
     # Tuned on Day 5 for the whole-window clustering (~750 questions, docs/EXPERIMENTS.md):

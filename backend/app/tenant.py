@@ -28,7 +28,7 @@ _REQUIRED_CLAIMS = ["exp", "iat", "iss", "aud", "sub", "org", "email"]
 
 @dataclass(frozen=True, slots=True)
 class Tenant:
-    """Who is calling. `org` scopes every SQL query and every Chroma call."""
+    """Who is calling. `org` scopes every SQL query, vector searches included."""
 
     org: str
     user_id: str

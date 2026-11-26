@@ -81,7 +81,7 @@ def test_judge_failure_is_none_not_zero(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_run_leaves_failed_judgements_out_of_the_averages(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    index("org_a", REFUND, PASSWORD)
+    index(db, "org_a", REFUND, PASSWORD)
     fake_llm(
         monkeypatch,
         {
@@ -105,7 +105,7 @@ def test_run_leaves_failed_judgements_out_of_the_averages(db: Session, monkeypat
 
 
 def test_questions_with_nothing_retrieved_are_skipped_not_scored(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    index("org_b", REFUND)  # only another org has docs
+    index(db, "org_b", REFUND)  # only another org has docs
     fake_llm(monkeypatch, {})
     run, [result] = run_evaluation(db, "org_a", ["How long do refunds take?"])
     assert result.skipped_because == "nothing retrieved"
@@ -113,8 +113,8 @@ def test_questions_with_nothing_retrieved_are_skipped_not_scored(db: Session, mo
 
 
 def test_top_k_override_limits_the_passages(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    index("org_a", REFUND, PASSWORD)
+    index(db, "org_a", REFUND, PASSWORD)
     fake_llm(monkeypatch, dict.fromkeys(evaluation.METRICS, '{"reason": "ok", "score": 1}'))
-    result = evaluation.evaluate_question("How long do refunds take?", "org_a", top_k=1)
+    result = evaluation.evaluate_question(db, "How long do refunds take?", "org_a", top_k=1)
     assert result.scores == dict.fromkeys(evaluation.METRICS, 1.0)
-    assert len(engine.retrieve_only("refunds", "org_a", top_k=1)) == 1
+    assert len(engine.retrieve_only(db, "refunds", "org_a", top_k=1)) == 1

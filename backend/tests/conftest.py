@@ -8,10 +8,10 @@ from tests.tokens import TEST_JWT_SECRET
 
 # Must be set before `app.config` is imported, because `settings = Settings()` runs at import.
 os.environ["BACKEND_JWT_SECRET"] = TEST_JWT_SECRET
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+# SQLite in memory by default; CI also runs the suite against Postgres + pgvector via TEST_DATABASE_URL.
+os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:")
 os.environ["ENVIRONMENT"] = "test"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
-os.environ["CHROMA_PATH"] = ":memory:"
 # Env vars beat backend/.env, so a developer's real LLM key can never be used by the tests.
 os.environ["LLM_PROVIDER"] = "none"
 os.environ["WARM_MODELS_ON_STARTUP"] = "false"
@@ -23,9 +23,10 @@ from collections.abc import Iterator  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import text as sql_text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from app import embeddings, models, vector_store  # noqa: E402, F401  (models registers tables)
+from app import embeddings, models  # noqa: E402, F401  (models registers tables)
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from tests.fakes import FAKE_DIMENSION, fake_embed  # noqa: E402
 
@@ -50,17 +51,12 @@ def fake_embeddings(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(embeddings, "dimension", lambda: FAKE_DIMENSION)
 
 
-@pytest.fixture(autouse=True)
-def clean_vector_store() -> Iterator[None]:
-    """Empty the in-memory Chroma collection after each test that touched it."""
-    yield
-    if vector_store._collection is not None:
-        vector_store.reset_for_tests()
-
-
 @pytest.fixture
 def db() -> Iterator[Session]:
-    """A fresh, empty in-memory database for each test."""
+    """A fresh, empty database for each test (tables created, then dropped)."""
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(sql_text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)
     session = SessionLocal()
     try:

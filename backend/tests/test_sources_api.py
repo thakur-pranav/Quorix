@@ -133,12 +133,12 @@ def test_reindex_while_in_progress_is_409(client: TestClient, db: Session) -> No
 
 def test_delete_removes_source_chunks_vectors_and_file(client: TestClient, db: Session) -> None:
     source_id = upload(client, "notes.txt", TEXT.encode()).json()["id"]
-    assert vector_store.count() == 1
+    assert vector_store.count(db, "org_a") == 1
 
     assert client.delete(f"/api/sources/{source_id}", headers=A).status_code == 204
     assert client.get("/api/sources", headers=A).json() == []
     assert db.scalars(select(Chunk)).all() == []
-    assert vector_store.count() == 0
+    assert vector_store.count(db, "org_a") == 0
     assert list(Path(settings.upload_dir).iterdir()) == []
 
 

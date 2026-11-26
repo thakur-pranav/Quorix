@@ -15,6 +15,7 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.db import SessionLocal
 from app.rag.engine import compute_confidence, retrieve_only
 
 DEFAULT_QUESTIONS = Path(__file__).parent / "data" / "threshold_questions.csv"
@@ -31,9 +32,9 @@ class Row:
 
 def measure(questions: Path, org: str) -> list[Row]:
     rows = []
-    with questions.open(encoding="utf-8") as f:
+    with questions.open(encoding="utf-8") as f, SessionLocal() as db:
         for item in csv.DictReader(f):
-            hits = retrieve_only(item["question"], org)
+            hits = retrieve_only(db, item["question"], org)
             scores = [h.similarity for h in hits]
             rows.append(
                 Row(

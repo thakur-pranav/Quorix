@@ -1,37 +1,29 @@
-"""Chroma adapter (SPEC section 5.6). The ONLY module that imports chromadb.
+"""Similarity search over chunk embeddings (SPEC section 5.6, Day 6: pgvector instead of Chroma).
 
-Adapter pattern: the rest of the app calls upsert / search / delete_source / count and never
-sees Chroma's API, so swapping to pgvector or Qdrant later means rewriting just this file.
+Vectors live in `chunks.embedding`, next to the text, so a chunk and its vector are written,
+replaced and deleted in ONE transaction: no second datastore to keep in step. This module is
+the only place that ranks by similarity; callers get `Hit`s and never see the SQL.
 
-Tenancy: every record carries `organization_id` in its metadata, and every search and delete
-filters on it. Distance -> similarity is converted here and nowhere else.
+- Postgres: pgvector's `<=>` (cosine distance) in SQL, filtered by organization first. No ANN
+  (HNSW) index yet: the org filter narrows to one tenant's chunks via the org index, then an
+  exact scan is fast at thousands of rows, and exact means no recall loss. An HNSW index plus a
+  WHERE filter can return fewer than k rows (the filter runs after the index search).
+- SQLite (tests, local dev): the same query without the distance, ranked in Python with numpy.
+
+Tenancy: every query filters on `organization_id`. Distance → similarity is converted here.
 """
 
 from __future__ import annotations
 
-import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+
+import numpy as np
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Float, bindparam, func, select
+from sqlalchemy.orm import Session
 
 from app.config import settings
-
-if TYPE_CHECKING:
-    from chromadb.api.models.Collection import Collection
-
-_collection: Collection | None = None
-_lock = threading.Lock()
-
-
-@dataclass(frozen=True)
-class VectorRecord:
-    chunk_id: str
-    vector: list[float]
-    text: str
-    organization_id: str
-    source_id: str
-    source_label: str
-    heading_path: str
-    url: str | None
+from app.models import Chunk, Source
 
 
 @dataclass(frozen=True)
@@ -45,92 +37,39 @@ class Hit:
     url: str | None
 
 
-def _get_collection() -> Collection:
-    global _collection
-    if _collection is None:
-        with _lock:
-            if _collection is None:
-                import chromadb
-                from chromadb.config import Settings as ChromaSettings
-
-                chroma_settings = ChromaSettings(anonymized_telemetry=False)
-                if settings.chroma_path == ":memory:":
-                    client = chromadb.EphemeralClient(settings=chroma_settings)
-                else:
-                    client = chromadb.PersistentClient(
-                        path=settings.chroma_path, settings=chroma_settings
-                    )
-                # Cosine distance on HNSW: distance = 1 - cosine similarity.
-                _collection = client.get_or_create_collection(
-                    name=settings.chroma_collection, metadata={"hnsw:space": "cosine"}
-                )
-    return _collection
-
-
-def _similarity(distance: float) -> float:
+def similarity_from_distance(distance: float) -> float:
+    """Cosine distance (0 = same direction, 2 = opposite) → similarity clamped to [0, 1]."""
     return max(0.0, min(1.0, 1.0 - float(distance)))
 
 
-def upsert(records: list[VectorRecord]) -> None:
-    if not records:
-        return
-    _get_collection().upsert(
-        ids=[r.chunk_id for r in records],
-        embeddings=[r.vector for r in records],
-        documents=[r.text for r in records],
-        metadatas=[
-            {
-                "organization_id": r.organization_id,
-                "source_id": r.source_id,
-                "source_label": r.source_label,
-                "heading_path": r.heading_path,
-                "url": r.url or "",  # Chroma metadata can't hold None
-            }
-            for r in records
-        ],
-    )
+def _hit(chunk: Chunk, label: str, similarity: float) -> Hit:
+    return Hit(chunk.id, similarity, chunk.text, chunk.source_id, label, chunk.heading_path, chunk.url)
 
 
-def search(vector: list[float], top_k: int, org: str) -> list[Hit]:
+def search(db: Session, vector: list[float], top_k: int, org: str) -> list[Hit]:
     """The `top_k` chunks closest to `vector`, from this organization only, closest first."""
-    result: Any = _get_collection().query(
-        query_embeddings=[vector],
-        n_results=top_k,
-        where={"organization_id": org},
-        include=["documents", "metadatas", "distances"],
+    base = (
+        select(Chunk, Source.label)
+        .join(Source, Source.id == Chunk.source_id)
+        .where(Chunk.organization_id == org, Chunk.embedding.is_not(None))
     )
-    ids, docs = result["ids"][0], result["documents"][0]
-    metas, distances = result["metadatas"][0], result["distances"][0]
-    return [
-        Hit(
-            chunk_id=chunk_id,
-            similarity=_similarity(distance),
-            text=doc or "",
-            source_id=str(meta["source_id"]),
-            source_label=str(meta["source_label"]),
-            heading_path=str(meta["heading_path"]),
-            url=str(meta["url"]) or None,
-        )
-        for chunk_id, doc, meta, distance in zip(ids, docs, metas, distances, strict=True)
-    ]
+    if db.get_bind().dialect.name == "postgresql":
+        query = bindparam("query_vector", vector, type_=Vector(settings.embedding_dimension))
+        distance = Chunk.embedding.op("<=>", return_type=Float)(query)
+        rows = db.execute(base.add_columns(distance).order_by(distance).limit(top_k)).all()
+        return [_hit(chunk, label, similarity_from_distance(d)) for chunk, label, d in rows]
+
+    # SQLite: rank in Python. Vectors are unit length, so cosine similarity is the dot product.
+    rows = db.execute(base).all()
+    if not rows:
+        return []
+    matrix = np.asarray([chunk.embedding for chunk, _ in rows], dtype=np.float64)
+    scores = matrix @ np.asarray(vector, dtype=np.float64)
+    best = np.argsort(-scores, kind="stable")[:top_k]
+    return [_hit(rows[i][0], rows[i][1], max(0.0, min(1.0, float(scores[i])))) for i in best]
 
 
-def delete_source(source_id: str, org: str) -> None:
-    """Remove all vectors of one source. The org filter means a wrong ID can't touch other tenants."""
-    _get_collection().delete(
-        where={"$and": [{"source_id": source_id}, {"organization_id": org}]}
-    )
-
-
-def count() -> int:
-    return _get_collection().count()
-
-
-def reset_for_tests() -> None:
-    """Drop every vector. Only for the in-memory store used by the test suite."""
-    if settings.chroma_path != ":memory:":
-        raise RuntimeError("reset_for_tests() refuses to wipe a persistent vector store")
-    collection = _get_collection()
-    existing = collection.get(include=[])["ids"]
-    if existing:
-        collection.delete(ids=existing)
+def count(db: Session, org: str) -> int:
+    """How many chunks of this organization have an embedding."""
+    stmt = select(func.count()).select_from(Chunk).where(Chunk.organization_id == org, Chunk.embedding.is_not(None))
+    return db.scalar(stmt) or 0

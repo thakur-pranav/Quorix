@@ -12,7 +12,6 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadF
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import vector_store
 from app.config import settings
 from app.db import DbSession
 from app.ingest import pipeline
@@ -148,9 +147,8 @@ def reindex_source(
 
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_source(source_id: str, tenant: CurrentTenant, db: DbSession) -> Response:
-    """Delete the source, its chunks (SQL cascade), its vectors and any uploaded file."""
+    """Delete the source, its chunks and their vectors (one SQL cascade) and any uploaded file."""
     source = _get_source_or_404(db, tenant, source_id)
-    vector_store.delete_source(source.id, tenant.org)
     if source.kind != "website":
         pipeline.upload_path(source).unlink(missing_ok=True)
     db.delete(source)

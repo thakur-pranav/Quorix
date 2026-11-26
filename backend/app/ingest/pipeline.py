@@ -18,7 +18,7 @@ from pathlib import Path
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import embeddings, vector_store
+from app import embeddings
 from app.config import settings
 from app.db import SessionLocal
 from app.ingest import chunker, crawler
@@ -99,7 +99,7 @@ def _index(db: Session, source: Source, extracted: Extracted) -> None:
     texts = [c.text for c in extracted.chunks]
     vectors = embeddings.embed(texts)
 
-    # Replace, not append: remove this source's old chunks first (SQL rows and vectors).
+    # Replace, not append: remove this source's old chunks (and their vectors: same rows) first.
     db.execute(
         delete(Chunk).where(Chunk.source_id == source.id, Chunk.organization_id == source.organization_id)
     )
@@ -112,27 +112,11 @@ def _index(db: Session, source: Source, extracted: Extracted) -> None:
             url=c.url,
             text=c.text,
             word_count=c.word_count,
+            embedding=vector,
         )
-        for c in extracted.chunks
+        for c, vector in zip(extracted.chunks, vectors, strict=True)
     ]
     db.add_all(rows)
-
-    vector_store.delete_source(source.id, source.organization_id)
-    vector_store.upsert(
-        [
-            vector_store.VectorRecord(
-                chunk_id=row.id,
-                vector=vector,
-                text=row.text,
-                organization_id=row.organization_id,
-                source_id=source.id,
-                source_label=source.label,
-                heading_path=row.heading_path,
-                url=row.url,
-            )
-            for row, vector in zip(rows, vectors, strict=True)
-        ]
-    )
 
     source.page_count = extracted.page_count
     source.chunk_count = len(rows)
@@ -140,7 +124,7 @@ def _index(db: Session, source: Source, extracted: Extracted) -> None:
     source.last_indexed_at = datetime.now(timezone.utc)
     source.error = None
     source.status = "ready"
-    db.commit()  # SQL rows and the "ready" status become visible together
+    db.commit()  # rows, vectors and the "ready" status: one transaction, all or nothing
 
 
 def run_ingestion(source_id: str, org: str) -> None:
@@ -157,13 +141,7 @@ def run_ingestion(source_id: str, org: str) -> None:
             _index(db, source, _extract(db, source))
             logger.info("ingested %s: %d chunks", source.id, source.chunk_count)
         except Exception as exc:
-            db.rollback()
-            # Dual write: the SQL rollback can't undo Chroma, so remove this source's vectors.
-            # The source then has no chunks anywhere; a re-index rebuilds them.
-            try:
-                vector_store.delete_source(source.id, org)
-            except Exception:
-                logger.exception("ingestion: could not clean up vectors for %s", source.id)
+            db.rollback()  # undoes the new rows AND their vectors: they're the same rows
             if isinstance(exc, IngestError):
                 message = str(exc)
             else:

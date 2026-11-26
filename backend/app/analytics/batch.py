@@ -18,7 +18,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 import numpy as np
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import embeddings, llm
@@ -185,8 +185,12 @@ def run_analysis(db: Session, org: str) -> list[BatchResult]:
     if not periods:
         return []
     # Idempotency: wipe the window's previous results (members and recommendations cascade).
-    db.execute(delete(TopicCluster).where(TopicCluster.organization_id == org, TopicCluster.period.in_(periods)))
-    db.execute(delete(Report).where(Report.organization_id == org, Report.period.in_(periods)))
+    # Through the ORM, not a bulk DELETE: a bulk delete leaves already-loaded objects in the
+    # session, and SQLite then reuses their integer ids for the new rows (identity-map clash).
+    old = db.scalars(select(TopicCluster).where(TopicCluster.organization_id == org, TopicCluster.period.in_(periods)))
+    old_reports = db.scalars(select(Report).where(Report.organization_id == org, Report.period.in_(periods)))
+    for row in [*old, *old_reports]:
+        db.delete(row)
     db.flush()
 
     messages = list(

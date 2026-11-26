@@ -13,6 +13,7 @@ Four parts:
 Per-question results go to docs/experiments/evaluation.json. Usage (from backend/):
     python -m scripts.run_evaluation --org org_demo
     python -m scripts.run_evaluation --org org_demo --top-k 3 5 8 --experiment-size 30
+    python -m scripts.run_evaluation --org org_demo --top-k 3 8 --experiment-only   # just part 3
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from scipy.stats import spearmanr
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import SessionLocal
@@ -36,11 +38,11 @@ HIT_KS = (1, 3, 5, 8)
 THRESHOLDS = (0.35, 0.40, 0.45, 0.48, 0.51, 0.55)
 
 
-def retrieval_metrics(org: str, items: list[dict]) -> dict[str, float]:
+def retrieval_metrics(db: Session, org: str, items: list[dict]) -> dict[str, float]:
     """Hit rate@k and MRR from ONE top-8 retrieval per question (a top-k list is a prefix of top-8)."""
     ranks: list[int | None] = []
     for item in items:
-        hits = engine.retrieve_only(item["question"], org, max(HIT_KS))
+        hits = engine.retrieve_only(db, item["question"], org, max(HIT_KS))
         source = (item["source_url"], item["source_heading"])
         ranks.append(next((n for n, h in enumerate(hits, start=1) if (h.url, h.heading_path) == source), None))
     out = {f"hit@{k}": round(sum(r is not None and r <= k for r in ranks) / len(ranks), 3) for k in HIT_KS}
@@ -88,6 +90,7 @@ def main() -> None:
     parser.add_argument("--org", required=True)
     parser.add_argument("--top-k", type=int, nargs="*", default=[], help="extra k values for the experiment")
     parser.add_argument("--experiment-size", type=int, default=30, help="answerable questions per extra k")
+    parser.add_argument("--experiment-only", action="store_true", help="skip parts 1, 2 and 4; merge into the saved report")
     args = parser.parse_args()
     if settings.llm_provider == "none":
         raise SystemExit("configure an LLM provider in backend/.env first")
@@ -96,39 +99,44 @@ def main() -> None:
     answerable = [i for i in items if i["answerable"]]
     unanswerable = [i for i in items if not i["answerable"]]
     report: dict[str, object] = {"judge_model": settings.judge_model, "generator_model": settings.groq_model}
+    if args.experiment_only:
+        report = json.loads(OUT_PATH.read_text(encoding="utf-8"))
 
-    report["retrieval"] = retrieval_metrics(args.org, answerable)
-    print("retrieval:", report["retrieval"])
-
-    k = settings.retrieval_top_k
     with SessionLocal() as db:
-        run, results = run_evaluation(db, args.org, [i["question"] for i in answerable])
-    off_topic = [evaluate_question(i["question"], args.org) for i in unanswerable]
-    report["stored_run"] = {"id": run.id, "top_k": k, **summary(results)}
-    report["unanswerable"] = summary(off_topic)
-    print(f"top_k={k} (stored as {run.id}):", report["stored_run"])
-    print("unanswerable:", report["unanswerable"])
+        k = settings.retrieval_top_k
+        results: list[QuestionResult] = []
+        if not args.experiment_only:
+            report["retrieval"] = retrieval_metrics(db, args.org, answerable)
+            print("retrieval:", report["retrieval"])
 
-    report["thresholds"] = threshold_table(results, off_topic)
-    pairs = [(r.confidence, f) for r in results if (f := r.scores.get("faithfulness")) is not None]
-    report["confidence_vs_faithfulness_spearman"] = spearman([c for c, _ in pairs], [f for _, f in pairs])
-    print("thresholds:", report["thresholds"])
-    print("confidence vs faithfulness (Spearman):", report["confidence_vs_faithfulness_spearman"])
+            run, results = run_evaluation(db, args.org, [i["question"] for i in answerable])
+            off_topic = [evaluate_question(db, i["question"], args.org) for i in unanswerable]
+            report["stored_run"] = {"id": run.id, "top_k": k, **summary(results)}
+            report["unanswerable"] = summary(off_topic)
+            print(f"top_k={k} (stored as {run.id}):", report["stored_run"])
+            print("unanswerable:", report["unanswerable"])
 
-    experiment: dict[str, object] = {}
-    subset = [i["question"] for i in answerable[: args.experiment_size]]
-    for extra_k in sorted(set(args.top_k)):
-        if extra_k == k:  # reuse the stored run's answers for the same subset
-            rows = [r for r in results if r.question in set(subset)]
-        else:
-            rows = [evaluate_question(q, args.org, extra_k) for q in subset]
-        experiment[str(extra_k)] = summary(rows)
-        print(f"experiment top_k={extra_k}:", experiment[str(extra_k)])
-    report["top_k_experiment"] = {"questions": len(subset), "results": experiment}
+            report["thresholds"] = threshold_table(results, off_topic)
+            pairs = [(r.confidence, f) for r in results if (f := r.scores.get("faithfulness")) is not None]
+            report["confidence_vs_faithfulness_spearman"] = spearman([c for c, _ in pairs], [f for _, f in pairs])
+            print("thresholds:", report["thresholds"])
+            print("confidence vs faithfulness (Spearman):", report["confidence_vs_faithfulness_spearman"])
+            report["per_question"] = [{**asdict(r), "answerable": True} for r in results] + [
+                {**asdict(r), "answerable": False} for r in off_topic
+            ]
 
-    report["per_question"] = [
-        {**asdict(r), "answerable": True} for r in results
-    ] + [{**asdict(r), "answerable": False} for r in off_topic]
+        experiment: dict[str, object] = {}
+        subset = [i["question"] for i in answerable[: args.experiment_size]]
+        for extra_k in sorted(set(args.top_k)):
+            if extra_k == k and results:  # reuse the stored run's answers for the same subset
+                rows = [r for r in results if r.question in set(subset)]
+            else:
+                rows = [evaluate_question(db, q, args.org, extra_k) for q in subset]
+            experiment[str(extra_k)] = summary(rows)
+            print(f"experiment top_k={extra_k}:", experiment[str(extra_k)])
+        if experiment:
+            report["top_k_experiment"] = {"questions": len(subset), "results": experiment}
+
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"saved {OUT_PATH}")

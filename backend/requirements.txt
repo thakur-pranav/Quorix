@@ -13,10 +13,9 @@ pypdf==7.1.1
 python-docx==1.2.0
 python-multipart==0.0.34
 
-# Day 2: embeddings and vector store (torch comes with sentence-transformers;
+# Day 2: embeddings (torch comes with sentence-transformers;
 # CI installs the CPU-only build first, see .github/workflows/ci.yml)
 sentence-transformers==6.3.0
-chromadb==1.5.9
 
 # Day 5: analytics (UMAP for dimensionality reduction, HDBSCAN from scikit-learn)
 umap-learn==0.6.0
@@ -25,3 +24,5 @@ scikit-learn==1.9.1
 # Day 6: migrations and Postgres (psycopg 3; DATABASE_URL uses postgresql+psycopg://)
 alembic==1.20.1
 psycopg[binary]==3.3.9
+# Day 6: vectors in Postgres (replaced Chroma: one database, one transaction)
+pgvector==0.5.1

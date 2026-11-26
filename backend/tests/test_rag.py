@@ -6,33 +6,22 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import embeddings, llm, vector_store
+from app import llm
 from app.config import settings
 from app.models import Conversation, Message
 from app.rag import engine
 from app.rag.engine import build_prompt, compute_confidence
-from app.vector_store import Hit, VectorRecord
+from app.vector_store import Hit
+from tests.fakes import add_chunk
 
 REFUND = "Refunds are paid back to the original card within five business days of approval."
 PASSWORD = "To reset your password open Settings then Security and choose Reset password."
 
 
-def index(org: str, *texts: str) -> None:
-    vector_store.upsert(
-        [
-            VectorRecord(
-                chunk_id=f"chk_{org}_{n}",
-                vector=embeddings.embed_one(text),
-                text=text,
-                organization_id=org,
-                source_id="src_1",
-                source_label="Help Center",
-                heading_path="Billing › Refunds" if "Refund" in text else "Account › Password",
-                url=None,
-            )
-            for n, text in enumerate(texts)
-        ]
-    )
+def index(db: Session, org: str, *texts: str) -> None:
+    for n, text in enumerate(texts):
+        heading = "Billing › Refunds" if "Refund" in text else "Account › Password"
+        add_chunk(db, f"chk_{org}_{n}", text, org, heading=heading, label="Help Center")
 
 
 @pytest.fixture
@@ -95,7 +84,7 @@ def test_injected_instructions_stay_inside_the_passages() -> None:
 
 
 def test_answer_path_calls_llm_logs_both_turns_and_cites(db: Session, llm_calls) -> None:
-    index("org_a", REFUND, PASSWORD)
+    index(db, "org_a", REFUND, PASSWORD)
     res = engine.answer(db, "org_a", "sess-1", "Refunds are paid back within how many business days?")
 
     assert res.text == "Refunds take five business days [1]."
@@ -116,7 +105,7 @@ def test_answer_path_calls_llm_logs_both_turns_and_cites(db: Session, llm_calls)
 def test_low_confidence_skips_the_llm_and_says_so(
     db: Session, llm_calls, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    index("org_a", REFUND, PASSWORD)
+    index(db, "org_a", REFUND, PASSWORD)
     monkeypatch.setattr(settings, "low_confidence_threshold", 0.99)
     res = engine.answer(db, "org_a", "sess-1", "What is the capital of France?")
 
@@ -134,7 +123,7 @@ def test_nothing_indexed(db: Session, llm_calls) -> None:
 
 
 def test_llm_failure_returns_passages_not_an_error(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    index("org_a", REFUND)
+    index(db, "org_a", REFUND)
 
     def down(*_args: object, **_kwargs: object) -> str:
         raise llm.LLMError("LLM unavailable after 4 attempts (HTTP 503)")
@@ -147,8 +136,8 @@ def test_llm_failure_returns_passages_not_an_error(db: Session, monkeypatch: pyt
 
 
 def test_conversation_is_reused_per_session_and_scoped_per_org(db: Session, llm_calls) -> None:
-    index("org_a", REFUND)
-    index("org_b", REFUND)
+    index(db, "org_a", REFUND)
+    index(db, "org_b", REFUND)
     engine.answer(db, "org_a", "same-session", "refunds?")
     engine.answer(db, "org_a", "same-session", "refunds again?")
     engine.answer(db, "org_b", "same-session", "refunds?")  # same session id, other tenant
@@ -160,14 +149,14 @@ def test_conversation_is_reused_per_session_and_scoped_per_org(db: Session, llm_
 
 
 def test_answer_only_uses_the_callers_org(db: Session, llm_calls) -> None:
-    index("org_b", REFUND)  # only another org has refund docs
+    index(db, "org_b", REFUND)  # only another org has refund docs
     res = engine.answer(db, "org_a", "sess-1", "refunds?")
     assert res.citations == [] and "Nothing has been indexed yet" in res.text
 
 
 def test_retrieve_only_logs_nothing(db: Session) -> None:
-    index("org_a", REFUND)
-    hits = engine.retrieve_only("refunds", "org_a")
+    index(db, "org_a", REFUND)
+    hits = engine.retrieve_only(db, "refunds", "org_a")
     assert hits and db.scalars(select(Message)).all() == []
 
 
@@ -175,7 +164,7 @@ def test_record_question_logs_backdated_synthetic_history(db: Session) -> None:
     """The seed script's path: same retrieval and confidence as chat, dated into the past, no LLM."""
     from datetime import datetime, timezone
 
-    index("org_a", REFUND)
+    index(db, "org_a", REFUND)
     asked_at = datetime(2026, 9, 14, 10, 30, tzinfo=timezone.utc)
     recorded = engine.record_question(db, "org_a", "seed-1", "how long do refunds take", asked_at=asked_at, synthetic=True)
 

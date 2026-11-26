@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 
-from app import embeddings, models, vector_store
+from app import embeddings, models
 from app.config import settings
 from app.db import DbSession, engine
 from app.routers import chat, insights, sources
@@ -22,9 +22,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Startup. The schema is owned by Alembic: run `alembic upgrade head` before starting the API
     # (create_all could create missing tables but never change existing ones).
     if settings.warm_models_on_startup:
-        # Load MiniLM and open Chroma now, so the first chat question doesn't wait ~20 s.
+        # Load MiniLM now, so the first chat question doesn't wait ~20 s, and check the model
+        # fits the schema: a different-size vector would only fail later, on the first insert.
+        size = embeddings.dimension()
+        if size != settings.embedding_dimension:
+            raise RuntimeError(
+                f"{settings.embedding_model} makes {size}-dimension vectors but the database column is "
+                f"vector({settings.embedding_dimension}): changing models needs a migration and re-embedding"
+            )
         embeddings.embed_one("warm-up")
-        vector_store.count()
     yield
     # Shutdown: close pooled DB connections cleanly.
     engine.dispose()

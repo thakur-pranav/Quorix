@@ -53,8 +53,8 @@ def test_website_ingestion_ends_ready_with_counts(db: Session, website: Source) 
     assert {c.organization_id for c in chunks} == {"org_a"}
     assert chunks[0].url == "https://docs.example.com/"
 
-    hits = vector_store.search(embeddings.embed_one("refund0 reset"), 5, "org_a")
-    assert {h.chunk_id for h in hits} == {c.id for c in chunks}  # SQL and Chroma agree
+    hits = vector_store.search(db, embeddings.embed_one("refund0 reset"), 5, "org_a")
+    assert {h.chunk_id for h in hits} == {c.id for c in chunks}  # every row was written with its vector
 
 
 def test_reindex_replaces_instead_of_appending(db: Session, website: Source) -> None:
@@ -62,7 +62,7 @@ def test_reindex_replaces_instead_of_appending(db: Session, website: Source) -> 
     pipeline.run_ingestion(website.id, "org_a")
 
     assert len(db.scalars(select(Chunk)).all()) == 2
-    assert vector_store.count() == 2
+    assert vector_store.count(db, "org_a") == 2
 
 
 def test_crawl_error_marks_failed_with_message(
@@ -84,18 +84,19 @@ def test_internal_error_is_not_leaked_and_leaves_no_vectors(
 ) -> None:
     pipeline.run_ingestion(website.id, "org_a")  # a good first index
 
-    def broken_upsert(_records: list[vector_store.VectorRecord]) -> None:
-        raise RuntimeError("chroma: disk I/O error at /var/lib/secret/path")
+    def broken(_texts: list[str]) -> str:
+        raise RuntimeError("disk I/O error at /var/lib/secret/path")
 
-    monkeypatch.setattr(vector_store, "upsert", broken_upsert)
+    # Fails after the new rows (with their vectors) were added, before the commit.
+    monkeypatch.setattr(pipeline, "content_hash", broken)
     pipeline.run_ingestion(website.id, "org_a")  # the re-index fails half way
 
     source = _reload(db, website)
     assert source.status == "failed"
     assert source.error == "indexing failed because of an internal error"  # no path leaked
     assert source.chunk_count == 0
-    assert db.scalars(select(Chunk)).all() == []  # SQL and Chroma stay consistent: both empty
-    assert vector_store.count() == 0
+    assert db.scalars(select(Chunk)).all() == []  # rows and vectors are the same rows: both gone
+    assert vector_store.count(db, "org_a") == 0
 
 
 def test_page_without_text_fails_cleanly(
