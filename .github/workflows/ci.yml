@@ -28,7 +28,7 @@ jobs:
     # Postgres with pgvector, for the second test run (production's database engine).
     services:
       postgres:
-        image: pgvector/pgvector:pg17
+        image: pgvector/pgvector:0.8.7-pg18  # Postgres 18 = Neon; pinned so CI is reproducible
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres  # a throwaway CI container, not a real secret
