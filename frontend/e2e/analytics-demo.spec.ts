@@ -80,7 +80,7 @@ test("another organization can't open a demo topic, even with its real id", asyn
   await signUpFreshUser(stranger, "Curious Competitor");
   await stranger.goto(href!);
   // The API scopes by the token's org, so for them the topic doesn't exist: not-found, no data.
-  await expect(stranger.getByText("This page could not be found.")).toBeVisible();
+  await expect(stranger.getByRole("heading", { name: "Topic not found" })).toBeVisible();
   await expect(stranger.getByRole("heading", { name: "Topic Volume History" })).toHaveCount(0);
   await stranger.close();
 });

@@ -33,7 +33,7 @@ export default async function EvaluationPage() {
         <EmptyState
           icon={CheckCircle2}
           title="No evaluation yet."
-          description="Run python -m scripts.run_evaluation on the backend to score faithfulness, answer relevance and context relevance."
+          description="Answer quality is scored offline by an independent AI judge: faithfulness to the docs, relevance to the question, and relevance of the retrieved passages. Results appear here after the next evaluation run."
         />
       )}
 
