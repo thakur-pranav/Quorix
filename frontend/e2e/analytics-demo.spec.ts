@@ -94,3 +94,20 @@ test("another organization can't open a demo topic, even with its real id", asyn
   await expect(stranger.getByRole("heading", { name: "History" })).toHaveCount(0);
   await stranger.close();
 });
+
+test("the demo is read-only: a banner, and no controls that change data", async ({ page }) => {
+  // The demo org must be listed in READ_ONLY_ORGS (as in production); the API refuses the writes
+  // on its own (backend tests/test_read_only.py), this checks the UI doesn't offer them.
+  await page.goto("/insights");
+  await expect(page.getByText("read-only demo")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Run analysis/ })).toHaveCount(0);
+
+  await page.goto("/report");
+  await expect(page.getByRole("button", { name: /Run analysis/ })).toHaveCount(0);
+
+  await page.goto("/sources");
+  await expect(page.getByRole("heading", { name: "Your sources" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add website|Upload/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Re-index" })).toHaveCount(0);
+});

@@ -18,7 +18,15 @@ const STATUS: Record<SourceStatus, { label: string; className: string; busy?: bo
   failed: { label: "Failed", className: "bg-danger-soft text-danger" },
 };
 
-export function SourceCard({ source, onChanged }: { source: SourceOut; onChanged: () => Promise<void> }) {
+export function SourceCard({
+  source,
+  onChanged,
+  readOnly = false,
+}: {
+  source: SourceOut;
+  onChanged: () => Promise<void>;
+  readOnly?: boolean;
+}) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -73,25 +81,27 @@ export function SourceCard({ source, onChanged }: { source: SourceOut; onChanged
       {source.status === "failed" && source.error && <Alert className="mt-4">{source.error}</Alert>}
       {error && <Alert className="mt-4">{error}</Alert>}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button size="sm" variant="outlined" disabled={pending || status.busy} onClick={() => act(() => reindexSourceAction(source.id))}>
-          Re-index
-        </Button>
-        {confirming ? (
-          <>
-            <Button size="sm" variant="danger" disabled={pending} onClick={() => act(() => deleteSourceAction(source.id))}>
-              Delete source and its chunks
-            </Button>
-            <Button size="sm" variant="text" disabled={pending} onClick={() => setConfirming(false)}>
-              Cancel
-            </Button>
-          </>
-        ) : (
-          <Button size="sm" variant="danger" disabled={pending} onClick={() => setConfirming(true)}>
-            Delete
+      {!readOnly && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" variant="outlined" disabled={pending || status.busy} onClick={() => act(() => reindexSourceAction(source.id))}>
+            Re-index
           </Button>
-        )}
-      </div>
+          {confirming ? (
+            <>
+              <Button size="sm" variant="danger" disabled={pending} onClick={() => act(() => deleteSourceAction(source.id))}>
+                Delete source and its chunks
+              </Button>
+              <Button size="sm" variant="text" disabled={pending} onClick={() => setConfirming(false)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="danger" disabled={pending} onClick={() => setConfirming(true)}>
+              Delete
+            </Button>
+          )}
+        </div>
+      )}
     </article>
   );
 }

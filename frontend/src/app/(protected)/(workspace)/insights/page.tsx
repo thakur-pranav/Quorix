@@ -4,13 +4,16 @@ import Link from "next/link";
 import { formatGrowth, TrendBadge } from "@/components/insights/trend-badge";
 import { RunAnalysisButton } from "@/components/insights/run-analysis-button";
 import { Alert } from "@/components/ui/card";
+import { requireUser } from "@/lib/auth";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
+import { isReadOnlyOrg } from "@/lib/read-only";
 import type { TopicOut } from "@/lib/fastapi/types";
 import { formatPercent } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Insights" };
 
 export default async function InsightsPage() {
+  const readOnly = isReadOnlyOrg((await requireUser()).organizationId);
   let topics: TopicOut[] = [];
   let error: string | null = null;
   try {
@@ -30,7 +33,7 @@ export default async function InsightsPage() {
             {period ? `What customers asked about in ${period}, highest priority first.` : "Topics your customers ask about, ranked by priority."}
           </p>
         </div>
-        <RunAnalysisButton />
+        {!readOnly && <RunAnalysisButton />}
       </div>
 
       {error && <Alert>{error}</Alert>}

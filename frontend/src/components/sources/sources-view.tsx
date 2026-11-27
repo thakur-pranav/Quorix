@@ -11,7 +11,8 @@ import { SourceCard } from "./source-card";
 const POLL_MS = 2000;
 const IN_PROGRESS = new Set(["queued", "crawling", "indexing"]);
 
-export function SourcesView({ initialSources }: { initialSources: SourceOut[] }) {
+/** `readOnly` (the public demo) only hides controls: the server refuses the writes either way. */
+export function SourcesView({ initialSources, readOnly = false }: { initialSources: SourceOut[]; readOnly?: boolean }) {
   const [sources, setSources] = useState(initialSources);
   const busy = sources.some((s) => IN_PROGRESS.has(s.status));
 
@@ -29,7 +30,7 @@ export function SourcesView({ initialSources }: { initialSources: SourceOut[] })
 
   return (
     <>
-      <AddSourceForms onAdded={refresh} />
+      {!readOnly && <AddSourceForms onAdded={refresh} />}
       <section aria-labelledby="your-sources" className="flex flex-col gap-3">
         <h2 id="your-sources" className="text-lg font-medium">
           Your sources <span className="text-ink-muted">({sources.length})</span>
@@ -42,7 +43,7 @@ export function SourcesView({ initialSources }: { initialSources: SourceOut[] })
           <ul className="flex flex-col gap-3">
             {sources.map((source) => (
               <li key={source.id}>
-                <SourceCard source={source} onChanged={refresh} />
+                <SourceCard source={source} onChanged={refresh} readOnly={readOnly} />
               </li>
             ))}
           </ul>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
+import { isReadOnlyOrg, READ_ONLY_MESSAGE } from "@/lib/read-only";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { ActionResult, ChatResponse, SourceOut } from "@/lib/fastapi/types";
 import { addWebsiteSchema, chatSchema, sourceIdSchema, uploadSchema } from "@/lib/validations/intelligence";
@@ -27,7 +28,8 @@ export async function listSourcesAction(): Promise<ActionResult<SourceOut[]>> {
 }
 
 export async function addWebsiteAction(input: { url: string; label?: string }): Promise<ActionResult<SourceOut>> {
-  await requireUser();
+  const user = await requireUser();
+  if (isReadOnlyOrg(user.organizationId)) return { success: false, error: READ_ONLY_MESSAGE };
   const parsed = addWebsiteSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
   const result = await run(() =>
@@ -41,7 +43,8 @@ export async function addWebsiteAction(input: { url: string; label?: string }): 
 }
 
 export async function uploadDocumentAction(formData: FormData): Promise<ActionResult<SourceOut>> {
-  await requireUser();
+  const user = await requireUser();
+  if (isReadOnlyOrg(user.organizationId)) return { success: false, error: READ_ONLY_MESSAGE };
   const parsed = uploadSchema.safeParse(formData.get("file"));
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
   const body = new FormData();
@@ -52,7 +55,8 @@ export async function uploadDocumentAction(formData: FormData): Promise<ActionRe
 }
 
 export async function reindexSourceAction(sourceId: string): Promise<ActionResult<SourceOut>> {
-  await requireUser();
+  const user = await requireUser();
+  if (isReadOnlyOrg(user.organizationId)) return { success: false, error: READ_ONLY_MESSAGE };
   const parsed = sourceIdSchema.safeParse(sourceId);
   if (!parsed.success) return { success: false, error: "Invalid source." };
   const result = await run(() => fastapi<SourceOut>(`/sources/${parsed.data}/reindex`, { method: "POST" }));
@@ -61,7 +65,8 @@ export async function reindexSourceAction(sourceId: string): Promise<ActionResul
 }
 
 export async function deleteSourceAction(sourceId: string): Promise<ActionResult<null>> {
-  await requireUser();
+  const user = await requireUser();
+  if (isReadOnlyOrg(user.organizationId)) return { success: false, error: READ_ONLY_MESSAGE };
   const parsed = sourceIdSchema.safeParse(sourceId);
   if (!parsed.success) return { success: false, error: "Invalid source." };
   const result = await run(async () => {
@@ -81,7 +86,8 @@ export async function askQuestionAction(input: { question: string; sessionId: st
 
 /** Queue the analytics batch for every period (oldest first). Runs in the background on FastAPI. */
 export async function runAnalyticsAction(): Promise<ActionResult<{ periods: string[] }>> {
-  await requireUser();
+  const user = await requireUser();
+  if (isReadOnlyOrg(user.organizationId)) return { success: false, error: READ_ONLY_MESSAGE };
   const result = await run(() => fastapi<{ status: string; periods: string[] }>("/analytics/run", { method: "POST", json: {} }));
   revalidatePath("/insights");
   revalidatePath("/overview");

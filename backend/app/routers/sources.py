@@ -18,7 +18,7 @@ from app.ingest import pipeline
 from app.ingest.ssrf import UnsafeURLError, assert_public_url
 from app.models import Source, new_id
 from app.schemas import SourceCreate, SourceOut
-from app.tenant import CurrentTenant, Tenant
+from app.tenant import CurrentTenant, Tenant, WritableTenant
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -50,7 +50,7 @@ def list_sources(tenant: CurrentTenant, db: DbSession) -> list[Source]:
 
 @router.post("", response_model=SourceOut, status_code=status.HTTP_201_CREATED)
 def create_source(
-    body: SourceCreate, tenant: CurrentTenant, db: DbSession, tasks: BackgroundTasks
+    body: SourceCreate, tenant: WritableTenant, db: DbSession, tasks: BackgroundTasks
 ) -> Source:
     """Register a website and crawl it in the background. Returns at once with status `queued`."""
     url = str(body.location)
@@ -103,7 +103,7 @@ def _validate_upload(name: str, data: bytes) -> str:
 
 @router.post("/upload", response_model=SourceOut, status_code=status.HTTP_201_CREATED)
 def upload_source(
-    file: UploadFile, tenant: CurrentTenant, db: DbSession, tasks: BackgroundTasks
+    file: UploadFile, tenant: WritableTenant, db: DbSession, tasks: BackgroundTasks
 ) -> Source:
     """Upload a PDF, DOCX, TXT or MD file (max 10 MB) and index it in the background.
 
@@ -133,7 +133,7 @@ def upload_source(
 
 @router.post("/{source_id}/reindex", response_model=SourceOut)
 def reindex_source(
-    source_id: str, tenant: CurrentTenant, db: DbSession, tasks: BackgroundTasks
+    source_id: str, tenant: WritableTenant, db: DbSession, tasks: BackgroundTasks
 ) -> Source:
     """Queue a fresh ingestion. Old chunks are replaced, not appended to."""
     source = _get_source_or_404(db, tenant, source_id)
@@ -146,7 +146,7 @@ def reindex_source(
 
 
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_source(source_id: str, tenant: CurrentTenant, db: DbSession) -> Response:
+def delete_source(source_id: str, tenant: WritableTenant, db: DbSession) -> Response:
     """Delete the source, its chunks and their vectors (one SQL cascade) and any uploaded file."""
     source = _get_source_or_404(db, tenant, source_id)
     if source.kind != "website":

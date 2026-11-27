@@ -4,7 +4,9 @@ import Link from "next/link";
 import { RunAnalysisButton } from "@/components/insights/run-analysis-button";
 import { Alert, Card } from "@/components/ui/card";
 import { LocalTime } from "@/components/ui/local-time";
+import { requireUser } from "@/lib/auth";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
+import { isReadOnlyOrg } from "@/lib/read-only";
 import type { RecommendationCategory, ReportOut, ReportSummaryOut } from "@/lib/fastapi/types";
 import { cn, formatPercent } from "@/lib/utils";
 
@@ -18,6 +20,7 @@ const CATEGORY: Record<RecommendationCategory, { label: string; className: strin
 };
 
 export default async function ReportPage() {
+  const readOnly = isReadOnlyOrg((await requireUser()).organizationId);
   let report: ReportOut | null = null;
   let history: ReportSummaryOut[] = [];
   let error: string | null = null;
@@ -36,7 +39,7 @@ export default async function ReportPage() {
           <h1 className="text-[28px] font-medium tracking-tight">Report{report ? `: ${report.period}` : ""}</h1>
           <p className="mt-1 text-ink-muted">What to fix next, backed by the questions customers actually asked.</p>
         </div>
-        <RunAnalysisButton />
+        {!readOnly && <RunAnalysisButton />}
       </div>
 
       {error && <Alert>{error}</Alert>}

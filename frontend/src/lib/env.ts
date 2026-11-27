@@ -17,6 +17,9 @@ const schema = z
     AUTH_SECRET: secret("AUTH_SECRET"),
     BACKEND_JWT_SECRET: secret("BACKEND_JWT_SECRET"),
     FASTAPI_BASE_URL: z.url().optional(),
+    // Organizations that may read and chat but not change anything (the public demo). Same
+    // comma-separated list as the backend's READ_ONLY_ORGS, which is the real enforcement.
+    READ_ONLY_ORGS: z.string().default(""),
   })
   .refine((env) => env.AUTH_SECRET !== env.BACKEND_JWT_SECRET, {
     message: "AUTH_SECRET and BACKEND_JWT_SECRET must be different",

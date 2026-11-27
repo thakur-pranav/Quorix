@@ -161,6 +161,10 @@ class Settings(BaseSettings):
     # Comma-separated list of browser origins allowed by CORS.
     cors_origins: str = "http://localhost:3000"
 
+    # Organizations that can read and chat but not change anything (the public demo, SPEC
+    # section 10). Comma-separated org ids; enforced on every write route, not just in the UI.
+    read_only_orgs: str = ""
+
     @model_validator(mode="after")
     def _llm_provider_is_configured(self) -> Settings:
         """Fail at startup if the chosen LLM provider has no key or model."""
@@ -179,6 +183,10 @@ class Settings(BaseSettings):
         if self.environment == "production" and self.database_url.startswith("sqlite"):
             raise ValueError("ENVIRONMENT=production needs a Postgres DATABASE_URL, not SQLite")
         return self
+
+    @property
+    def read_only_org_set(self) -> frozenset[str]:
+        return frozenset(org.strip() for org in self.read_only_orgs.split(",") if org.strip())
 
     @property
     def cors_origin_list(self) -> list[str]:

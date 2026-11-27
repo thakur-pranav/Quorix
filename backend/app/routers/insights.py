@@ -31,7 +31,7 @@ from app.schemas import (
     TopicOut,
     WeakChunk,
 )
-from app.tenant import CurrentTenant
+from app.tenant import CurrentTenant, WritableTenant
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["insights"])
@@ -207,7 +207,7 @@ def _run_in_background(org: str) -> None:
 
 
 @router.post("/analytics/run", response_model=AnalyticsRunOut, status_code=status.HTTP_202_ACCEPTED)
-def run_analytics(_body: AnalyticsRunRequest, tenant: CurrentTenant, db: DbSession, tasks: BackgroundTasks) -> AnalyticsRunOut:
+def run_analytics(_body: AnalyticsRunRequest, tenant: WritableTenant, db: DbSession, tasks: BackgroundTasks) -> AnalyticsRunOut:
     """Queue a re-analysis of the window (all its months together). 202: it runs after the response.
 
     The body has no options but is still declared, so unknown fields are rejected with 422.

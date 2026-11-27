@@ -78,3 +78,17 @@ def get_tenant(
 
 # Shorthand for route signatures: `def list_sources(tenant: CurrentTenant, ...)`.
 CurrentTenant = Annotated[Tenant, Depends(get_tenant)]
+
+
+def get_writable_tenant(tenant: CurrentTenant) -> Tenant:
+    """Like get_tenant, for routes that change data: read-only orgs (the public demo) get 403.
+
+    403, not 401: the caller is authenticated, just not allowed to do this. Enforced here, on the
+    server, so hiding buttons in the UI is a convenience, not the protection.
+    """
+    if tenant.org in settings.read_only_org_set:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "The demo workspace is read-only.")
+    return tenant
+
+
+WritableTenant = Annotated[Tenant, Depends(get_writable_tenant)]
