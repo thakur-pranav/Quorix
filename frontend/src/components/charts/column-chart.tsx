@@ -49,7 +49,7 @@ export function ColumnChart({
                 {/* the hit target is the whole slot, taller and wider than the mark */}
                 <div
                   className={cn(
-                    "w-full max-w-6 rounded-t-[4px] bg-primary transition-opacity group-hover:opacity-80 group-focus-visible:opacity-80",
+                    "w-full max-w-6 rounded-t-[4px] bg-primary transition-opacity group-hover:opacity-80 group-focus:opacity-80",
                     c.value === 0 && "invisible",
                   )}
                   style={{ height: `${pct}%` }}
@@ -61,7 +61,7 @@ export function ColumnChart({
                 )}
                 <span
                   role="tooltip"
-                  className="pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap rounded-field bg-ink px-2.5 py-1.5 text-xs text-bg group-hover:block group-focus-visible:block"
+                  className="pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap rounded-field bg-ink px-2.5 py-1.5 text-xs text-bg group-hover:block group-focus:block"
                 >
                   {c.tooltip}
                 </span>
