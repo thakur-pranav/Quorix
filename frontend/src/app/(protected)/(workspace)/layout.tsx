@@ -4,6 +4,10 @@ import { WorkspaceNav } from "@/components/layout/workspace-nav";
 import { requireUser } from "@/lib/auth";
 import { isReadOnlyOrg } from "@/lib/read-only";
 
+// Server actions and pages here may wait on the API: a chat answer (LLM, with retries) takes
+// 10-20 s and a cold backend ~30 s. Vercel's default limit is shorter; 60 s is the Hobby maximum.
+export const maxDuration = 60;
+
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser(); // cached per request: the protected layout already called it
   return (

@@ -39,7 +39,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PORT=8000
 
 # A non-root user: if the app is ever compromised, it can't modify the image or the system.
-RUN useradd --system --uid 10001 --home /app quorix
+# uid 1000 because Hugging Face Spaces runs containers as uid 1000; it owns /app/data.
+RUN useradd --uid 1000 --home /app quorix
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /opt/hf /opt/hf
