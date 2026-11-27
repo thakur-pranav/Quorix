@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models import Chunk
 
 
 def test_get_db_yields_a_working_session_and_closes_it() -> None:
@@ -30,7 +33,13 @@ def test_get_db_closes_session_even_if_route_fails() -> None:
     close_spy.assert_called_once()
 
 
-def test_sqlite_foreign_keys_are_enforced() -> None:
-    db = next(get_db())
-    assert db.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
-    db.close()
+def test_foreign_keys_are_enforced(db: Session) -> None:
+    """A chunk pointing at a source that doesn't exist must be rejected, on SQLite and Postgres.
+
+    Tests the behaviour, not a setting: SQLite ignores foreign keys unless `PRAGMA foreign_keys=ON`
+    is set per connection (app/db.py does it); Postgres always enforces them, and has no PRAGMA.
+    """
+    db.add(Chunk(id="chk_orphan0001", organization_id="org_a", source_id="src_does_not_exist", text="x"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
