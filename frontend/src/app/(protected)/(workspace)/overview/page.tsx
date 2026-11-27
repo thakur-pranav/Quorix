@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { BackendProblem } from "@/components/layout/backend-problem";
 import { ColumnChart } from "@/components/charts/column-chart";
 import { StatTile } from "@/components/charts/stat-tile";
 import { STRONG_MATCH } from "@/components/chat/confidence-meter";
-import { Alert, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { OverviewOut } from "@/lib/fastapi/types";
 import { countDelta, histogramColumns, pointsDelta } from "@/lib/overview";
@@ -14,12 +15,12 @@ export const metadata: Metadata = { title: "Overview" };
 
 export default async function OverviewPage() {
   let data: OverviewOut | null = null;
-  let error: string | null = null;
+  let error: BackendError | null = null;
   try {
     data = await fastapi<OverviewOut>("/overview");
   } catch (e) {
     if (!(e instanceof BackendError)) throw e;
-    error = e.message;
+    error = e;
   }
 
   return (
@@ -31,7 +32,7 @@ export default async function OverviewPage() {
         </p>
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <BackendProblem error={error} />}
       {data && !data.period && (
         <p className="rounded-card border border-dashed border-outline-soft px-5 py-10 text-center text-ink-muted">
           No questions yet. <Link href="/sources" className="text-primary underline">Add your docs</Link>, then{" "}

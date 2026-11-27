@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { BackendProblem } from "@/components/layout/backend-problem";
 import { RunAnalysisButton } from "@/components/insights/run-analysis-button";
-import { Alert, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { LocalTime } from "@/components/ui/local-time";
 import { requireUser } from "@/lib/auth";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
@@ -23,13 +24,13 @@ export default async function ReportPage() {
   const readOnly = isReadOnlyOrg((await requireUser()).organizationId);
   let report: ReportOut | null = null;
   let history: ReportSummaryOut[] = [];
-  let error: string | null = null;
+  let error: BackendError | null = null;
   try {
     history = await fastapi<ReportSummaryOut[]>("/reports");
     if (history.length > 0) report = await fastapi<ReportOut>("/reports/latest");
   } catch (e) {
     if (!(e instanceof BackendError)) throw e;
-    error = e.message;
+    error = e;
   }
 
   return (
@@ -42,7 +43,7 @@ export default async function ReportPage() {
         {!readOnly && <RunAnalysisButton />}
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <BackendProblem error={error} />}
       {!error && !report && (
         <p className="rounded-card border border-dashed border-outline-soft px-5 py-10 text-center text-ink-muted">
           No report yet. Run the analysis once customers have asked enough questions.

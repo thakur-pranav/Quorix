@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { BackendProblem } from "@/components/layout/backend-problem";
 import { formatGrowth, TrendBadge } from "@/components/insights/trend-badge";
 import { RunAnalysisButton } from "@/components/insights/run-analysis-button";
-import { Alert } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import { isReadOnlyOrg } from "@/lib/read-only";
@@ -15,12 +15,12 @@ export const metadata: Metadata = { title: "Insights" };
 export default async function InsightsPage() {
   const readOnly = isReadOnlyOrg((await requireUser()).organizationId);
   let topics: TopicOut[] = [];
-  let error: string | null = null;
+  let error: BackendError | null = null;
   try {
     topics = await fastapi<TopicOut[]>("/insights");
   } catch (e) {
     if (!(e instanceof BackendError)) throw e;
-    error = e.message;
+    error = e;
   }
   const period = topics[0]?.period;
 
@@ -36,7 +36,7 @@ export default async function InsightsPage() {
         {!readOnly && <RunAnalysisButton />}
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <BackendProblem error={error} />}
       {!error && topics.length === 0 && (
         <p className="rounded-card border border-dashed border-outline-soft px-5 py-10 text-center text-ink-muted">
           No topics yet. Once customers have asked enough questions, run the analysis.

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
+import { BackendProblem } from "@/components/layout/backend-problem";
 import { SourcesView } from "@/components/sources/sources-view";
-import { Alert } from "@/components/ui/card";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { SourceOut } from "@/lib/fastapi/types";
 import { requireUser } from "@/lib/auth";
@@ -12,12 +12,12 @@ export const metadata: Metadata = { title: "Sources" };
 export default async function SourcesPage() {
   const readOnly = isReadOnlyOrg((await requireUser()).organizationId);
   let sources: SourceOut[] = [];
-  let error: string | null = null;
+  let error: BackendError | null = null;
   try {
     sources = await fastapi<SourceOut[]>("/sources");
   } catch (e) {
     if (!(e instanceof BackendError)) throw e;
-    error = e.message;
+    error = e;
   }
 
   return (
@@ -28,7 +28,7 @@ export default async function SourcesPage() {
           Connect your help center or upload documents. Answers come only from what you add here.
         </p>
       </div>
-      {error ? <Alert>{error}</Alert> : <SourcesView initialSources={sources} readOnly={readOnly} />}
+      {error ? <BackendProblem error={error} /> : <SourcesView initialSources={sources} readOnly={readOnly} />}
     </div>
   );
 }

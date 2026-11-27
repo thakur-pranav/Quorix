@@ -11,7 +11,7 @@ vi.mock("@/lib/auth", () => ({
   })),
 }));
 
-import { BackendError, fastapi, readableError } from "./client";
+import { BackendError, fastapi, isWakingUp, readableError } from "./client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -50,6 +50,23 @@ describe("fastapi client", () => {
   it("maps a network failure to a 503 BackendError", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
     await expect(fastapi("/sources")).rejects.toMatchObject({ status: 503 });
+  });
+
+  it("says 'waking up' for a sleeping backend: no connection, or a proxy's 502-504 page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    const unreachable = await fastapi("/sources").catch((e: unknown) => e);
+    expect(isWakingUp(unreachable)).toBe(true);
+    expect((unreachable as BackendError).message).toMatch(/waking up/);
+
+    stubFetch(new Response("<html>Space is starting</html>", { status: 503 }));
+    await expect(fastapi("/sources")).rejects.toMatchObject({ status: 503, message: expect.stringMatching(/waking up/) });
+  });
+
+  it("keeps FastAPI's own message on a 503 it sent itself, and doesn't call other errors 'waking up'", async () => {
+    stubFetch(Response.json({ detail: "Database is busy" }, { status: 503 }));
+    await expect(fastapi("/sources")).rejects.toMatchObject({ message: "Database is busy" });
+    expect(isWakingUp(new BackendError(500, "boom"))).toBe(false);
+    expect(isWakingUp(new Error("not a backend error"))).toBe(false);
   });
 
   it("turns FastAPI error bodies into readable BackendErrors", async () => {

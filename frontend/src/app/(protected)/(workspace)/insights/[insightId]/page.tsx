@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackendProblem } from "@/components/layout/backend-problem";
 import { formatGrowth, TrendBadge } from "@/components/insights/trend-badge";
-import { Alert, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { TopicDetailOut } from "@/lib/fastapi/types";
 import { formatPercent } from "@/lib/utils";
@@ -20,7 +21,7 @@ export default async function InsightDetailPage({ params }: { params: Promise<{ 
     topic = await fastapi<TopicDetailOut>(`/insights/${parsed.data}`);
   } catch (e) {
     if (e instanceof BackendError && e.status === 404) notFound(); // includes another org's topic
-    if (e instanceof BackendError) return <Alert>{e.message}</Alert>;
+    if (e instanceof BackendError) return <BackendProblem error={e} />;
     throw e;
   }
 

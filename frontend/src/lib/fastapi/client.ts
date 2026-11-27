@@ -42,6 +42,17 @@ export function readableError(status: number, body: unknown): string {
   return `Request failed (${status}).`;
 }
 
+/**
+ * The backend is asleep or starting: a free host stops it after a while idle, and the proxy in
+ * front answers 502/503/504 (or the connection fails) until it's up again (~30 s).
+ */
+export const WAKING_UP_STATUSES = new Set([502, 503, 504]);
+const WAKING_UP_MESSAGE = "The analysis service is waking up (about 30 seconds). Please try again in a moment.";
+
+export function isWakingUp(error: unknown): boolean {
+  return error instanceof BackendError && WAKING_UP_STATUSES.has(error.status);
+}
+
 export async function fastapi<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const user = await requireUser(); // defence in depth: no user, no backend call
   const headers: Record<string, string> = {
@@ -65,11 +76,15 @@ export async function fastapi<T>(path: string, options: RequestOptions = {}): Pr
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
-    throw new BackendError(503, "The analysis service is unreachable. Please try again shortly.");
+    throw new BackendError(503, WAKING_UP_MESSAGE); // unreachable: asleep, starting or restarting
   }
 
   if (response.status === 204) return undefined as T;
   const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new BackendError(response.status, readableError(response.status, payload));
+  if (!response.ok) {
+    // A proxy's 502-504 page isn't FastAPI JSON: say what it almost always means.
+    const message = WAKING_UP_STATUSES.has(response.status) && payload === null ? WAKING_UP_MESSAGE : readableError(response.status, payload);
+    throw new BackendError(response.status, message);
+  }
   return payload as T;
 }

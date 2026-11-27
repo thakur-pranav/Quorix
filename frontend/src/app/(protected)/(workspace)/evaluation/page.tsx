@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { Alert, Card } from "@/components/ui/card";
+import { BackendProblem } from "@/components/layout/backend-problem";
+import { Card } from "@/components/ui/card";
 import { LocalTime } from "@/components/ui/local-time";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { EvaluationMetric, EvaluationOut } from "@/lib/fastapi/types";
@@ -24,12 +25,12 @@ function verdict(score: number) {
 
 export default async function EvaluationPage() {
   let run: EvaluationOut | null = null;
-  let error: string | null = null;
+  let error: BackendError | null = null;
   try {
     run = await fastapi<EvaluationOut>("/evaluation/latest");
   } catch (e) {
     if (!(e instanceof BackendError)) throw e;
-    if (e.status !== 404) error = e.message; // 404 = no run yet: the empty state below
+    if (e.status !== 404) error = e; // 404 = no run yet: the empty state below
   }
 
   return (
@@ -39,7 +40,7 @@ export default async function EvaluationPage() {
         <p className="mt-1 text-ink-muted">How good the answers are, scored by an independent AI judge.</p>
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <BackendProblem error={error} />}
       {!error && !run && (
         <p className="rounded-card border border-dashed border-outline-soft px-5 py-10 text-center text-ink-muted">
           No evaluation yet. Run <code className="text-sm">python -m scripts.run_evaluation</code> on the backend.

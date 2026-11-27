@@ -94,3 +94,18 @@ export async function runAnalyticsAction(): Promise<ActionResult<{ periods: stri
   revalidatePath("/report");
   return result.success ? { success: true, data: { periods: result.data.periods } } : result;
 }
+
+/**
+ * Is the backend up? Polled by the "waking up" screen. Goes through the Next.js server like every
+ * other call: the browser never talks to FastAPI. Returns a boolean, never an error message.
+ */
+export async function pingBackendAction(): Promise<boolean> {
+  await requireUser();
+  try {
+    await fastapi<unknown>("/health");
+    return true;
+  } catch (error) {
+    if (error instanceof BackendError) return false;
+    throw error; // redirects (no session) and real bugs must not be swallowed
+  }
+}
