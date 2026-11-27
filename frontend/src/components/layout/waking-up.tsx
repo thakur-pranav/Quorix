@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { pingBackendAction } from "@/actions/intelligence";
-import { Button } from "@/components/ui/button";
 
 const POLL_MS = 5_000;
 const GIVE_UP_MS = 3 * 60_000;
@@ -40,24 +39,24 @@ export function WakingUp() {
 
   if (gaveUp) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-3 rounded-field bg-warning-soft px-4 py-3 text-sm text-warning">
+      <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800 dark:border-amber-950 dark:bg-amber-950/30 dark:text-amber-200">
         <span>The analysis service still isn&apos;t answering.</span>
-        <Button
-          size="sm"
-          variant="outlined"
+        <button
+          type="button"
           onClick={() => {
             setGaveUp(false);
             setAttempt((n) => n + 1);
           }}
+          className="inline-flex items-center rounded-full border border-amber-300 bg-white px-3.5 py-1.5 text-xs font-medium text-amber-800 shadow-xs transition hover:bg-amber-50 active:scale-95"
         >
           Try again
-        </Button>
+        </button>
       </div>
     );
   }
   return (
-    <div role="status" className="flex items-center gap-3 rounded-field bg-surface-2 px-4 py-3 text-sm">
-      <LoaderCircle aria-hidden className="size-4 animate-spin text-primary" />
+    <div role="status" className="flex items-center gap-3 rounded-3xl border border-slate-200/70 bg-[#F3EDF7]/40 px-5 py-4 text-sm text-slate-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-slate-300">
+      <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin text-[#6750A4]" />
       <span>
         Waking up the backend (about 30 s). It sleeps when nobody has used it for a while; this page will load
         by itself.

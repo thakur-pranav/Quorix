@@ -10,12 +10,12 @@ import { signUpFreshUser } from "./helpers";
 test("a new organization sees empty states, not errors or other tenants' data", async ({ page }) => {
   await signUpFreshUser(page);
   // A normal org gets the write controls (the demo spec checks they're absent for the demo org).
-  await expect(page.getByRole("button", { name: "Add website" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add Website" })).toBeVisible();
   await expect(page.getByText("read-only demo")).toHaveCount(0);
-  const nav = page.getByRole("navigation", { name: "Workspace" });
+  const nav = page.getByRole("navigation", { name: "Workspace secondary navigation" });
 
-  await nav.getByRole("link", { name: "Overview" }).click();
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
+  await nav.getByRole("link", { name: "This period" }).click();
+  await expect(page.getByRole("heading", { name: "This period", level: 1 })).toBeVisible();
   await expect(page.getByText("No questions yet.")).toBeVisible();
 
   await nav.getByRole("link", { name: "Insights" }).click();

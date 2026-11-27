@@ -1,5 +1,5 @@
-import { AppHeader } from "@/components/layout/app-header";
-import { ChatSessionProvider } from "@/components/chat/chat-session-provider";
+import { ChatSessionProvider } from "@/components/chat/ChatSessionProvider";
+import { Navbar } from "@/components/navbar/Navbar";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -10,9 +10,11 @@ import { requireUser } from "@/lib/auth";
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   return (
-    <ChatSessionProvider>
-      <AppHeader user={user} />
-      {children}
-    </ChatSessionProvider>
+    <div className="flex min-h-screen flex-col bg-md-background text-md-on-background">
+      <Navbar user={user} />
+      <ChatSessionProvider>
+        <main className="flex flex-1 flex-col">{children}</main>
+      </ChatSessionProvider>
+    </div>
   );
 }

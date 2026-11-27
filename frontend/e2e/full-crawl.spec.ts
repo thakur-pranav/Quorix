@@ -21,28 +21,29 @@ test("crawl a real docs site and get a cited answer", async ({ page }) => {
 
   await page.goto("/register");
   await shot("01-register");
-  await page.getByLabel("Your name").fill("Demo Owner");
-  await page.getByLabel("Company").fill("Demo Support Team");
-  await page.getByLabel("Work email").fill(email);
+  await page.getByLabel("Full name").fill("Demo Owner");
+  await page.getByLabel("Organization name").fill("Demo Support Team");
+  await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill("correct horse battery");
   await page.getByLabel("Confirm password").fill("correct horse battery");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/sources$/);
 
-  await page.getByLabel("Help center URL").fill(docsUrl);
-  await page.getByLabel("Label (optional)").fill("Help Center");
-  await page.getByRole("button", { name: "Add website" }).click();
+  await page.getByRole("button", { name: "Add Website" }).click();
+  await page.getByLabel("Website or Documentation URL *").fill(docsUrl);
+  await page.getByLabel("Display Label (optional)").fill("Help Center");
+  await page.getByRole("button", { name: "Connect" }).click();
   await expect(page.getByText(/Queued|Crawling/)).toBeVisible({ timeout: 15_000 });
   await shot("02-crawling");
 
   await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 7 * 60_000 });
   await shot("03-ready");
 
-  await page.getByRole("link", { name: "Ask" }).click();
+  await page.getByRole("navigation", { name: "Workspace secondary navigation" }).getByRole("link", { name: "Ask" }).click();
   await page.getByLabel("Your question").fill(question);
-  await page.getByRole("button", { name: "Send question" }).click();
-  await expect(page.getByText(/sources?$/).first()).toBeVisible({ timeout: 60_000 }); // "N sources"
-  await page.locator("summary").first().click(); // open the citations
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(/Grounded Sources?$/).first()).toBeVisible({ timeout: 60_000 }); // "N Grounded Sources"
+  await page.getByText(/Grounded Sources?$/).first().click(); // open the citations
   await shot("04-answer");
 
   await expect(page.getByRole("meter", { name: "Retrieval confidence" })).toBeVisible();

@@ -1,144 +1,141 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, MessageSquare } from "lucide-react";
 
+import { InsightEvidence } from "@/components/insights/InsightEvidence";
+import { InsightHistoryChart } from "@/components/insights/InsightHistoryChart";
+import { InsightTrendBadge } from "@/components/insights/InsightTrendBadge";
+import { MemberQueriesList } from "@/components/insights/MemberQueriesList";
 import { BackendProblem } from "@/components/layout/backend-problem";
-import { formatGrowth, TrendBadge } from "@/components/insights/trend-badge";
-import { Card } from "@/components/ui/card";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { TopicDetailOut } from "@/lib/fastapi/types";
-import { formatPercent } from "@/lib/utils";
+import { formatNumber, formatPercent, formatTopicGrowth } from "@/lib/formatters";
 import { topicIdSchema } from "@/lib/validations/intelligence";
 
 export const metadata: Metadata = { title: "Topic" };
+
+const SAMPLE_QUESTIONS = 4;
 
 export default async function InsightDetailPage({ params }: { params: Promise<{ insightId: string }> }) {
   const parsed = topicIdSchema.safeParse((await params).insightId);
   if (!parsed.success) notFound();
 
-  let topic: TopicDetailOut;
+  let insight: TopicDetailOut;
   try {
-    topic = await fastapi<TopicDetailOut>(`/insights/${parsed.data}`);
+    insight = await fastapi<TopicDetailOut>(`/insights/${parsed.data}`);
   } catch (e) {
     if (e instanceof BackendError && e.status === 404) notFound(); // includes another org's topic
     if (e instanceof BackendError) return <BackendProblem error={e} />;
     throw e;
   }
+  const samples = insight.memberQueries.slice(0, SAMPLE_QUESTIONS);
+  const metrics: [string, string][] = [
+    [formatNumber(insight.queryCount), `Queries (${formatTopicGrowth(insight.growth, insight.previousQueryCount)})`],
+    [formatPercent(insight.meanConfidence), "Mean Confidence"],
+    [insight.priority.toFixed(2), "Priority Score"],
+    [insight.severity.toFixed(2), "Severity Index"],
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-8">
+      {/* Navigation & Header */}
       <div>
-        <Link href="/insights" className="text-sm text-primary hover:underline">
-          ← All topics
+        <Link
+          href="/insights"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-[#6750A4] dark:text-slate-400"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Insights
         </Link>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <h1 className="text-[28px] font-medium tracking-tight">{topic.name}</h1>
-          <TrendBadge trend={topic.trend} />
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {topic.keywords.map((k) => (
-            <span key={k} className="rounded-full bg-surface-3 px-2.5 py-0.5 text-xs text-ink-muted">
-              {k}
-            </span>
-          ))}
+
+        <div className="mt-3 flex flex-col gap-4 border-b border-slate-200/60 pb-5 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E8DEF8] text-xs font-bold text-[#6750A4] dark:bg-purple-950/60 dark:text-purple-300">
+                #{insight.rank}
+              </span>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">{insight.name}</h1>
+            </div>
+            {insight.keywords.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {insight.keywords.map((kw) => (
+                  <span key={kw} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-zinc-800 dark:text-slate-300">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            )}
+            {insight.severityReason && (
+              <p className="mt-3 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Why this severity: </span>
+                {insight.severityReason}
+              </p>
+            )}
+          </div>
+          <InsightTrendBadge trend={insight.trend} />
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Metric label="Rank" value={`#${topic.rank}`} />
-        <Metric label="Questions" value={`${topic.queryCount}`} sub={formatGrowth(topic.growth, topic.previousQueryCount)} />
-        <Metric label="Mean confidence" value={formatPercent(topic.meanConfidence)} />
-        <Metric label="Severity" value={topic.severity.toFixed(2)} />
-        <Metric label="Priority" value={topic.priority.toFixed(2)} />
-      </dl>
+      {/* Metrics Row */}
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-labelledby="detail-metrics-heading">
+        <h2 id="detail-metrics-heading" className="sr-only">
+          Topic Metrics
+        </h2>
+        {metrics.map(([value, label]) => (
+          <div key={label} className="rounded-2xl border border-slate-200/70 bg-[#F3EDF7]/40 p-4 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
+            <span className="block text-2xl font-bold text-slate-900 dark:text-white">{value}</span>
+            <span className="mt-0.5 block text-xs text-slate-500">{label}</span>
+          </div>
+        ))}
+      </section>
 
-      {topic.severityReason && (
-        <p className="text-sm text-ink-muted">
-          <span className="font-medium text-ink">Why this severity: </span>
-          {topic.severityReason}
-        </p>
-      )}
+      {/* History and Sample Questions */}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <InsightHistoryChart history={insight.history} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="font-medium">History</h2>
-          <table className="mt-3 w-full text-sm">
-            <thead className="text-left text-xs text-ink-muted">
-              <tr>
-                <th className="pb-2 font-normal">Month</th>
-                <th className="pb-2 font-normal">Questions</th>
-                <th className="pb-2 font-normal">Confidence</th>
-                <th className="pb-2 font-normal">Trend</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topic.history.map((h) => (
-                <tr key={h.period} className="border-t border-outline-soft/50">
-                  <td className="py-2">{h.period}</td>
-                  <td className="py-2 font-medium">{h.queryCount}</td>
-                  <td className="py-2">{formatPercent(h.meanConfidence)}</td>
-                  <td className="py-2">
-                    <TrendBadge trend={h.trend} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+        <div className="rounded-3xl border border-slate-200/70 bg-[#F3EDF7]/30 p-5 dark:border-zinc-800 dark:bg-zinc-900/30">
+          <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Sample Questions</h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400">The ones the docs answered worst</p>
+          <div className="mt-4 space-y-2.5">
+            {samples.length > 0 ? (
+              samples.map((query) => (
+                <div
+                  key={query.messageId}
+                  className="flex items-start gap-2.5 rounded-2xl bg-white/70 p-3 text-xs italic text-slate-700 dark:bg-zinc-800/60 dark:text-slate-300"
+                >
+                  <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-[#6750A4]" />
+                  <span>&ldquo;{query.text}&rdquo;</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-500">No sample queries available.</p>
+            )}
+          </div>
+        </div>
+      </section>
 
-        <Card>
-          <h2 className="font-medium">Pages to improve</h2>
-          <p className="text-sm text-ink-muted">The passages these questions landed on, weakest match first.</p>
-          {topic.weakestChunks.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-muted">No passages were retrieved for these questions.</p>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-3">
-              {topic.weakestChunks.map((c) => (
-                <li key={c.chunkId} className="text-sm">
-                  <p className="font-medium">
-                    {c.url ? (
-                      <a href={c.url} target="_blank" rel="noreferrer noopener" className="text-primary hover:underline">
-                        {c.headingPath}
-                      </a>
-                    ) : (
-                      c.headingPath
-                    )}
-                  </p>
-                  <p className="text-xs text-ink-muted">
-                    {c.sourceLabel} · retrieved {c.timesRetrieved}× · {formatPercent(c.meanSimilarity)} average match
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-ink-muted">{c.excerpt}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+      {/* Customer Inquiries Evidence */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            Customer Questions ({insight.memberQueries.length})
+          </h3>
+          <p className="text-xs text-slate-500">Real questions grouped into this topic, lowest confidence first</p>
+        </div>
+        <MemberQueriesList queries={insight.memberQueries} />
+      </section>
 
-      <Card>
-        <h2 className="font-medium">What customers asked</h2>
-        <p className="text-sm text-ink-muted">Lowest confidence first: these are the ones the docs answered worst.</p>
-        <ul className="mt-3 divide-y divide-outline-soft/50">
-          {topic.memberQueries.map((q) => (
-            <li key={q.messageId} className="flex items-start justify-between gap-4 py-2 text-sm">
-              <span>{q.text}</span>
-              <span className="shrink-0 text-xs text-ink-muted">{q.confidence === null ? "–" : formatPercent(q.confidence)}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </div>
-  );
-}
-
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-card bg-surface-2 px-4 py-3">
-      <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="mt-0.5 text-xl font-medium">
-        {value}
-        {sub && <span className="ml-1.5 text-xs font-normal text-ink-muted">{sub}</span>}
-      </dd>
+      {/* Weakest Knowledge Matches Evidence */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">Weakest Knowledge Matches</h3>
+          <p className="text-xs text-slate-500">
+            The doc sections this topic&apos;s questions landed on, worst match first: the pages to improve
+          </p>
+        </div>
+        <InsightEvidence weakestChunks={insight.weakestChunks} />
+      </section>
     </div>
   );
 }

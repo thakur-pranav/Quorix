@@ -16,7 +16,7 @@ export function RichText({ text }: { text: string }) {
             if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={i} className="font-medium">{part.slice(2, -2)}</strong>;
             if (/^\[\d+\]$/.test(part)) {
               return (
-                <sup key={i} className="mx-0.5 rounded bg-secondary-soft px-1 text-[11px] font-medium text-on-secondary-soft">
+                <sup key={i} className="mx-0.5 rounded bg-md-secondary-container px-1 text-[11px] font-medium text-md-on-secondary-container">
                   {part.slice(1, -1)}
                 </sup>
               );

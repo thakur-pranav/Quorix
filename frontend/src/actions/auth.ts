@@ -82,7 +82,7 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
 
   await LoginAttempt.deleteMany({ email });
   await setSessionCookie(String(user._id));
-  redirect("/sources");
+  redirect("/overview");
 }
 
 export async function logoutAction(): Promise<void> {

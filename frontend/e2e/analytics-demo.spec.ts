@@ -14,52 +14,42 @@ test.beforeEach(async ({ page }) => {
   await signInAsDemo(page);
 });
 
-test("Overview: headline numbers, both charts and their table views", async ({ page }) => {
+test("Overview: headline numbers, the three charts and the live threshold", async ({ page }) => {
   await page.goto("/overview");
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
-  for (const label of ["Questions this month", "Conversations", "Weak doc match", "Mean confidence"]) {
+  await expect(page.getByRole("heading", { name: "This period", level: 1 })).toBeVisible();
+  for (const label of ["Conversations", "Questions", "Active Topics", "Unanswered Rate", "Mean Confidence", "Emerging Topics"]) {
     await expect(page.getByText(label, { exact: true })).toBeVisible();
   }
-
-  // Both charts are labelled images, each with a table view behind "Show as table".
-  const charts = page.getByRole("img", { name: /Exact values in the table below/ });
-  await expect(charts).toHaveCount(2);
-  const toggles = page.getByText("Show as table");
-  await toggles.first().click();
-  const months = page.locator("details[open] tbody tr");
-  expect(await months.count()).toBeGreaterThanOrEqual(1);
-  await expect(months.first()).toContainText(/\d{4}-\d{2}/);
-
-  // The histogram's decision lines come from the backend's live threshold.
+  for (const chart of ["Query Volume Over Time", "Retrieval Confidence Trend", /^How Well The Docs Matched/]) {
+    await expect(page.getByRole("heading", { name: chart })).toBeVisible();
+  }
+  // The histogram's decision lines come from the backend's live threshold (SVG labels).
   await expect(page.getByText(/^Refused below 0\.\d\d$/)).toBeVisible();
   await expect(page.getByText(/^Strong 0\.\d\d\+$/)).toBeVisible();
-
-  // Keyboard users get the same tooltip as mouse users.
-  const firstMonth = page.locator('[tabindex="0"][aria-label*="questions, mean confidence"]').first();
-  await firstMonth.focus();
-  await expect(firstMonth.getByRole("tooltip")).toBeVisible();
+  await expect(page.locator(".recharts-bar-rectangle").first()).toBeVisible(); // bars drawn
 });
 
 test("Insights: ranked topics, and a topic's history across months", async ({ page }) => {
   await page.goto("/insights");
   const topics = page.locator('a[href^="/insights/ins_"]');
   await expect(topics.first()).toBeVisible();
-  await expect(topics.first().locator(":scope > span").first()).toHaveText("1"); // ranked from 1
+  await expect(topics.first().getByText("#1", { exact: true })).toBeVisible(); // ranked from 1
 
   await topics.first().click();
   // Generous: in dev mode a route compiles on its first visit, which can take several seconds.
   await expect(page).toHaveURL(/\/insights\/ins_[0-9a-f]{12}$/, { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
-  await expect(page.getByText("Pages to improve")).toBeVisible();
-  await expect(page.getByText("What customers asked")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Topic Volume History" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Customer Questions \(\d+\)$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Weakest Knowledge Matches" })).toBeVisible();
+  await expect(page.getByText("Why this severity:")).toBeVisible();
 });
 
 test("Report: summary and categorised recommendations", async ({ page }) => {
   await page.goto("/report");
   await expect(page.getByRole("heading", { name: /^Report: \d{4}-\d{2}$/, level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recommendations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Recommendations \(\d+\)$/ })).toBeVisible();
   await expect(page.getByText(/Product fix|Docs gap|FAQ|Customer follow-up/).first()).toBeVisible();
-  await expect(page.getByText(/questions behind this/).first()).toBeVisible();
+  await expect(page.getByText("Customer Inquiry Evidence").first()).toBeVisible();
 });
 
 test("Evaluation: three meters with valid values, and the judge's reasons", async ({ page }) => {
@@ -71,12 +61,12 @@ test("Evaluation: three meters with valid values, and the judge's reasons", asyn
     if (now !== null) expect(Number(now)).toBeGreaterThanOrEqual(0); // null = no usable judgements
     if (now !== null) expect(Number(now)).toBeLessThanOrEqual(1);
   }
-  await expect(page.getByText(/judgements? failed and left out of the averages/)).toBeVisible();
+  await expect(page.getByText(/judgements? failed and left out of\s+the averages/)).toBeVisible();
 
   const firstFailure = page.locator("ol > li").first();
   if (await firstFailure.isVisible()) {
-    await expect(firstFailure.getByText(/^Judge:/)).toBeVisible();
-    await firstFailure.getByText(/The answer it judged/).click();
+    await expect(firstFailure.getByText("Reason:")).toBeVisible();
+    await firstFailure.getByText("The answer it judged").click();
     await expect(firstFailure.locator("details[open] p")).not.toBeEmpty();
   }
 });
@@ -91,7 +81,7 @@ test("another organization can't open a demo topic, even with its real id", asyn
   await stranger.goto(href!);
   // The API scopes by the token's org, so for them the topic doesn't exist: not-found, no data.
   await expect(stranger.getByText("This page could not be found.")).toBeVisible();
-  await expect(stranger.getByRole("heading", { name: "History" })).toHaveCount(0);
+  await expect(stranger.getByRole("heading", { name: "Topic Volume History" })).toHaveCount(0);
   await stranger.close();
 });
 
@@ -100,14 +90,16 @@ test("the demo is read-only: a banner, and no controls that change data", async 
   // on its own (backend tests/test_read_only.py), this checks the UI doesn't offer them.
   await page.goto("/insights");
   await expect(page.getByText("read-only demo")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Run analysis/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Run analytics/ })).toHaveCount(0);
 
-  await page.goto("/report");
-  await expect(page.getByRole("button", { name: /Run analysis/ })).toHaveCount(0);
+  for (const path of ["/overview", "/report"]) {
+    await page.goto(path);
+    await expect(page.getByRole("button", { name: /Run analytics/ })).toHaveCount(0);
+  }
 
   await page.goto("/sources");
-  await expect(page.getByRole("heading", { name: "Your sources" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Add website|Upload/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Re-index" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /^Connected Knowledge \(\d+\)$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add Website|Upload/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete source" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reindex" })).toHaveCount(0);
 });

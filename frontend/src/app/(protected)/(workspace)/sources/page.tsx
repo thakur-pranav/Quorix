@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 
 import { BackendProblem } from "@/components/layout/backend-problem";
-import { SourcesView } from "@/components/sources/sources-view";
+import { BackendStatus } from "@/components/shared/BackendStatus";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { AddWebsiteForm } from "@/components/sources/AddWebsiteForm";
+import { SourceList } from "@/components/sources/SourceList";
+import { UploadDocumentForm } from "@/components/sources/UploadDocumentForm";
+import { requireUser } from "@/lib/auth";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { SourceOut } from "@/lib/fastapi/types";
-import { requireUser } from "@/lib/auth";
 import { isReadOnlyOrg } from "@/lib/read-only";
 
 export const metadata: Metadata = { title: "Sources" };
@@ -21,14 +25,35 @@ export default async function SourcesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-[28px] font-medium tracking-tight">Sources</h1>
-        <p className="mt-1 text-ink-muted">
-          Connect your help center or upload documents. Answers come only from what you add here.
-        </p>
-      </div>
-      {error ? <BackendProblem error={error} /> : <SourcesView initialSources={sources} readOnly={readOnly} />}
+    <div className="space-y-6">
+      <PageHeader
+        title="Sources"
+        description="Manage the documents and websites Quorix uses as knowledge."
+        actions={<BackendStatus status={error ? "unavailable" : "connected"} />}
+      />
+
+      {error ? (
+        <BackendProblem error={error} />
+      ) : (
+        <>
+          {!readOnly && (
+            <section aria-labelledby="connect-sources-heading" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <h2 id="connect-sources-heading" className="sr-only">
+                Connect New Knowledge Sources
+              </h2>
+              <AddWebsiteForm />
+              <UploadDocumentForm />
+            </section>
+          )}
+
+          <section aria-labelledby="connected-sources-heading" className="space-y-3">
+            <h2 id="connected-sources-heading" className="text-base font-semibold text-slate-900 dark:text-white">
+              Connected Knowledge ({sources.length})
+            </h2>
+            <SourceList sources={sources} readOnly={readOnly} />
+          </section>
+        </>
+      )}
     </div>
   );
 }

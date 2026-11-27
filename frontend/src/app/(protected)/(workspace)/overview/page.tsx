@@ -1,123 +1,95 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { STRONG_MATCH } from "@/components/chat/ConfidenceMeter";
 import { BackendProblem } from "@/components/layout/backend-problem";
-import { ColumnChart } from "@/components/charts/column-chart";
-import { StatTile } from "@/components/charts/stat-tile";
-import { STRONG_MATCH } from "@/components/chat/confidence-meter";
-import { Card } from "@/components/ui/card";
+import { ActivityChart } from "@/components/overview/ActivityChart";
+import { AnalyticsRunControl } from "@/components/overview/AnalyticsRunControl";
+import { ConfidenceChart } from "@/components/overview/ConfidenceChart";
+import { ConfidenceDistributionChart } from "@/components/overview/ConfidenceDistributionChart";
+import { OverviewMetricGrid } from "@/components/overview/OverviewMetricGrid";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { requireUser } from "@/lib/auth";
 import { BackendError, fastapi } from "@/lib/fastapi/client";
 import type { OverviewOut } from "@/lib/fastapi/types";
-import { countDelta, histogramColumns, pointsDelta } from "@/lib/overview";
-import { formatPercent } from "@/lib/utils";
+import { isReadOnlyOrg } from "@/lib/read-only";
 
 export const metadata: Metadata = { title: "Overview" };
 
 export default async function OverviewPage() {
-  let data: OverviewOut | null = null;
+  const readOnly = isReadOnlyOrg((await requireUser()).organizationId);
+  let overviewData: OverviewOut | null = null;
   let error: BackendError | null = null;
   try {
-    data = await fastapi<OverviewOut>("/overview");
+    overviewData = await fastapi<OverviewOut>("/overview");
   } catch (e) {
     if (!(e instanceof BackendError)) throw e;
     error = e;
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[28px] font-medium tracking-tight">Overview</h1>
-        <p className="mt-1 text-ink-muted">
-          {data?.period ? `How customers' questions went in ${data.period}.` : "How customers' questions are going."}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="This period"
+        period={overviewData?.period}
+        description="Customer conversation health and the topics gaining attention."
+        actions={readOnly ? undefined : <AnalyticsRunControl />}
+      />
 
-      {error && <BackendProblem error={error} />}
-      {data && !data.period && (
-        <p className="rounded-card border border-dashed border-outline-soft px-5 py-10 text-center text-ink-muted">
-          No questions yet. <Link href="/sources" className="text-primary underline">Add your docs</Link>, then{" "}
-          <Link href="/ask" className="text-primary underline">ask something</Link>.
-        </p>
-      )}
-      {data?.period && <OverviewBody data={data} />}
+      {error ? (
+        <BackendProblem error={error} />
+      ) : overviewData && !overviewData.period ? (
+        <EmptyState
+          title="No questions yet."
+          description="Add your docs on the Sources page, then ask something: activity shows up here."
+        />
+      ) : overviewData ? (
+        <>
+          {/* Key Metrics */}
+          <section aria-labelledby="kpi-heading">
+            <h2 id="kpi-heading" className="sr-only">
+              Key Performance Indicators
+            </h2>
+            <OverviewMetricGrid data={overviewData} />
+          </section>
+
+          {/* Activity Visualizations */}
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2" aria-labelledby="charts-heading">
+            <h2 id="charts-heading" className="sr-only">
+              Activity and Confidence Charts
+            </h2>
+            <ActivityChart data={overviewData.volumeByPeriod} />
+            <ConfidenceChart data={overviewData.volumeByPeriod} />
+          </section>
+
+          <ConfidenceDistributionChart
+            bins={overviewData.confidenceHistogram}
+            threshold={overviewData.lowConfidenceThreshold}
+            strongMatch={STRONG_MATCH}
+            period={overviewData.period ?? ""}
+          />
+
+          {/* At a glance summary */}
+          <section className="rounded-3xl border border-slate-200/70 bg-[#F3EDF7]/30 p-6 dark:border-zinc-800 dark:bg-zinc-900/30">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">At a glance</h3>
+            <div className="mt-3 grid grid-cols-1 gap-4 text-xs text-slate-600 sm:grid-cols-3 dark:text-slate-400">
+              <div className="rounded-2xl bg-white/70 p-4 dark:bg-zinc-800/60">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Topic Breadth:</span>{" "}
+                {overviewData.topicCount} customer themes identified across {overviewData.conversationCount} total
+                sessions.
+              </div>
+              <div className="rounded-2xl bg-white/70 p-4 dark:bg-zinc-800/60">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Documentation Gaps:</span>{" "}
+                {Math.round(overviewData.unansweredRate * 100)}% of queries lacked strong knowledge matches.
+              </div>
+              <div className="rounded-2xl bg-white/70 p-4 dark:bg-zinc-800/60">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Emerging Volume:</span>{" "}
+                {overviewData.emergingCount} topic clusters are showing accelerated customer volume.
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
-  );
-}
-
-function OverviewBody({ data }: { data: OverviewOut }) {
-  const months = data.volumeByPeriod;
-  const previous = months.length > 1 ? months[months.length - 2] : undefined;
-  const threshold = data.lowConfidenceThreshold;
-  const questionsDelta = countDelta(data.queryCount, previous?.queryCount);
-  const confidenceDelta = pointsDelta(data.meanConfidence, previous?.meanConfidence);
-
-  return (
-    <>
-      <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <StatTile
-          label="Questions this month"
-          value={data.queryCount.toLocaleString()}
-          delta={questionsDelta ? { ...questionsDelta, good: "neither" } : undefined}
-        />
-        <StatTile label="Conversations" value={data.conversationCount.toLocaleString()} />
-        <StatTile
-          label="Weak doc match"
-          value={formatPercent(data.unansweredRate)}
-          note={`questions below the ${threshold.toFixed(2)} threshold`}
-        />
-        <StatTile
-          label="Mean confidence"
-          value={data.meanConfidence.toFixed(2)}
-          delta={confidenceDelta ? { ...confidenceDelta, good: "up" } : undefined}
-        />
-      </dl>
-
-      <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
-        <Card>
-          <h2 className="font-medium">Questions per month</h2>
-          <p className="mb-8 mt-1 text-sm text-ink-muted">Customer questions logged by the assistant.</p>
-          <ColumnChart
-            title="Questions per month"
-            valueLabel="Questions"
-            highlightKey={data.period ?? undefined}
-            columns={months.map((m) => ({
-              key: m.period,
-              label: m.period,
-              value: m.queryCount,
-              tooltip: `${m.period}: ${m.queryCount} questions, mean confidence ${m.meanConfidence.toFixed(2)}`,
-            }))}
-          />
-        </Card>
-
-        <Card>
-          <h2 className="font-medium">How well the docs matched, {data.period}</h2>
-          <p className="mb-8 mt-1 text-sm text-ink-muted">
-            Questions by retrieval confidence. Below {threshold.toFixed(2)} the assistant says it couldn&apos;t find it;
-            from {STRONG_MATCH.toFixed(2)} it&apos;s a strong match.
-          </p>
-          <ColumnChart
-            title={`Questions by retrieval confidence, ${data.period}`}
-            valueLabel="Questions"
-            dense
-            columns={histogramColumns(data.confidenceHistogram)}
-            markers={[
-              { at: threshold, label: `Refused below ${threshold.toFixed(2)}`, side: "left" },
-              { at: STRONG_MATCH, label: `Strong ${STRONG_MATCH.toFixed(2)}+`, side: "right" },
-            ]}
-            xTicks={[0, 0.25, 0.5, 0.75, 1].map((t) => ({ at: t, label: t.toFixed(2) }))}
-          />
-        </Card>
-      </div>
-
-      <Card className="flex flex-wrap items-center justify-between gap-3">
-        <p>
-          <span className="font-medium">{data.topicCount} topics</span> this month,{" "}
-          <span className="font-medium">{data.emergingCount} emerging</span>.
-        </p>
-        <Link href="/insights" className="text-sm font-medium text-primary hover:underline">
-          See the topics →
-        </Link>
-      </Card>
-    </>
   );
 }

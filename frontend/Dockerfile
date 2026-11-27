@@ -35,6 +35,8 @@ ENV NODE_ENV=production \
 # The node image's built-in non-root user.
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
+# Static files (the logo): standalone output copies neither public/ nor .next/static itself.
+COPY --from=build --chown=node:node /app/public ./public
 USER node
 EXPOSE 3000
 
